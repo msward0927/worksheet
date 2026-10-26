@@ -5,7 +5,7 @@
 
 ## 실행 (Windows 포터블)
 
-1. `Worksheet-0.1.0-portable.exe` 를 원하는 폴더(USB 도 가능)에 둡니다.
+1. `Worksheet-0.1.1-portable.exe` 를 원하는 폴더(USB 도 가능)에 둡니다.
 2. 더블클릭해서 실행합니다. 설치 과정은 없습니다.
 3. 최근 파일 목록은 실행 파일 옆 `WorksheetData` 폴더에 저장됩니다.
 
