@@ -78,9 +78,9 @@ export function boxForTool(tool: Tool, x: number, y: number, existingNames: Set<
   };
   switch (tool) {
     case 'rect':
-      return makeBox('shape', x, y, { shape: 'rounded' });
+      return makeBox('shape', x, y, { shape: 'rounded', align: 'center', valign: 'middle', fontSize: 16 });
     case 'ellipse':
-      return makeBox('shape', x, y, { shape: 'ellipse', w: 180, h: 180 });
+      return makeBox('shape', x, y, { shape: 'ellipse', w: 180, h: 180, align: 'center', valign: 'middle', fontSize: 16 });
     case 'text':
       return makeBox('text', x, y, { fill: 'transparent', stroke: 'none', fontSize: 16 });
     case 'sticky':

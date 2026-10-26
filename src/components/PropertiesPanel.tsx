@@ -198,11 +198,11 @@ function BoxPanel({ box }: { box: Box }) {
 
       {box.kind === 'shape' && (
         <div className="muted small">
-          워크박스에는 글을 직접 쓰지 않아요. 더블클릭하면 안에 텍스트 박스가 생기고, 다른 박스를 끌어다 넣을 수도 있어요. 안에 박스가 있으면 점 모눈이 보여요.
+          더블클릭해서 글을 쓸 수 있고, 다른 박스를 끌어다 넣을 수도 있어요. Shift 를 누르고 옮기면 들어갈 워크박스에 점 모눈이 보여요.
         </div>
       )}
 
-      {box.kind === 'text' && <TextFields box={box} update={update} />}
+      {(box.kind === 'text' || box.kind === 'shape') && <TextFields box={box} update={update} />}
       {box.kind === 'number' && <NumberFields box={box} update={update} />}
       {box.kind === 'formula' && <FormulaFields box={box} update={update} result={result} />}
       {box.kind === 'checklist' && <ChecklistFields box={box} update={update} />}

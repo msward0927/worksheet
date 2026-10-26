@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { boxForTool, cloneBoxes, makeBox } from '../boxes';
 import { openContent } from '../fileOps';
 import { intersects, type Pt, type Rect } from '../geometry';
-import { edgeLayer, findContainer, parentIds, reparent, topLevel, withDescendants } from '../tree';
+import { edgeLayer, findContainer, reparent, topLevel, withDescendants } from '../tree';
 import { platform, readImageFile } from '../platform';
 import { useStore } from '../store';
 import type { Box, Edge, Tool } from '../types';
@@ -81,6 +81,7 @@ export function Canvas() {
   const [panning, setPanning] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dotsTarget, setDotsTarget] = useState<string | null>(null);
 
   const { view } = doc;
 
@@ -330,13 +331,16 @@ export function Canvas() {
             return org ? { ...b, x: org.x + dx, y: org.y + dy } : b;
           }),
         }));
-        // 놓으면 들어갈 워크박스를 표시한다
+        // 놓으면 들어갈 워크박스를 표시하고, 점에 맞추는 중이면 그 워크박스에 점 모눈을 보여 준다
         const moved = useStore.getState().doc.boxes;
         const primary = moved.find((b) => b.id === d.primary);
-        setDropTarget(primary ? (findContainer(moved, primary)?.id ?? null) : null);
+        const target = primary ? (findContainer(moved, primary)?.id ?? null) : null;
+        setDropTarget(target);
+        setDotsTarget(useSnap ? target : null);
         return;
       }
       case 'resize': {
+        setDotsTarget(useSnap ? (s.doc.boxes.find((b) => b.id === d.id)?.parentId ?? null) : null);
         if (!d.moved) s.checkpoint();
         d.moved = true;
         const { orig, corner } = d;
@@ -369,6 +373,8 @@ export function Canvas() {
         d.snapKey = e.shiftKey;
         const r = createRect(d.start, p, s.snap || d.snapKey);
         setOverlay({ kind: 'rect', r, marquee: false });
+        const probe = makeBox('text', r.x, r.y, { w: Math.max(r.w, 1), h: Math.max(r.h, 1) });
+        setDotsTarget(s.snap || d.snapKey ? (findContainer(s.doc.boxes, probe)?.id ?? null) : null);
         return;
       }
       case 'connect': {
@@ -390,6 +396,7 @@ export function Canvas() {
     setOverlay(null);
     setPanning(false);
     setDropTarget(null);
+    setDotsTarget(null);
     if (!d) return;
     const s = useStore.getState();
     switch (d.kind) {
@@ -438,10 +445,7 @@ export function Canvas() {
     };
     if (boxId) {
       const box = s.doc.boxes.find((b) => b.id === boxId)!;
-      if (box.kind === 'shape') {
-        // 워크박스에는 글을 직접 쓰지 않고, 안에 텍스트 박스를 만든다
-        newText();
-      } else if (box.kind === 'image') {
+      if (box.kind === 'image') {
         const data = await platform.openImage();
         if (data) s.updateBox(box.id, { image: data });
       } else {
@@ -479,7 +483,6 @@ export function Canvas() {
   const cursor = panning ? 'grabbing' : tool === 'hand' || spaceDown ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
   const single = selected.length === 1;
   const selectedSet = new Set(selected);
-  const parents = parentIds(doc.boxes);
   // 연결선은 양 끝을 품은 워크박스 바로 위(그 안의 박스들보다는 아래)에 그린다
   const edgeGroups = useMemo(() => {
     const byId = new Map(doc.boxes.map((b) => [b.id, b]));
@@ -521,7 +524,7 @@ export function Canvas() {
               editing={editingId === b.id}
               result={results.get(b.id)}
               zoom={view.zoom}
-              hasChildren={parents.has(b.id)}
+              showDots={dotsTarget === b.id}
               dropTarget={dropTarget === b.id}
             />
             {edgeGroups.has(b.id) && <EdgeLines edges={edgeGroups.get(b.id)!} boxes={doc.boxes} selectedEdge={selectedEdge} zoom={view.zoom} />}

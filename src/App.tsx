@@ -30,7 +30,7 @@ function useKeyboard() {
       // 텍스트 박스 글자 꾸밈 (편집 중에도 동작)
       if (mod && (key === 'b' || key === 'i' || key === 'u') && !s.settingsOpen && s.screen === 'editor') {
         const field = ({ b: 'bold', i: 'italic', u: 'underline' } as const)[key];
-        const texts = s.doc.boxes.filter((b) => s.selected.includes(b.id) && b.kind === 'text');
+        const texts = s.doc.boxes.filter((b) => s.selected.includes(b.id) && (b.kind === 'text' || b.kind === 'shape'));
         if (texts.length > 0) {
           e.preventDefault();
           const on = !texts.every((b) => b[field]);

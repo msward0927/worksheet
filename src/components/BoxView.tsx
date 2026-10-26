@@ -15,15 +15,15 @@ interface Props {
   editing: boolean;
   result: BoxResult | undefined;
   zoom: number;
-  /** 안에 다른 박스가 들어 있으면 점 모눈을 그린다 */
-  hasChildren: boolean;
+  /** Shift 를 누르고 옮기거나 만들 때, 들어갈 워크박스에 점 모눈을 잠깐 그린다 */
+  showDots: boolean;
   /** 지금 끌고 있는 박스가 이 워크박스 안으로 들어갈 예정 */
   dropTarget: boolean;
 }
 
 const RADIUS: Record<Box['shape'], string> = { rect: '3px', rounded: '12px', ellipse: '50%', diamond: '0' };
 
-function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren, dropTarget }: Props) {
+function BoxViewImpl({ box, selected, single, editing, result, zoom, showDots, dropTarget }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
   const theme = useStore((s) => s.theme);
   const fill = themed(box.fill, theme);
@@ -36,7 +36,7 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren
   // box-inner 는 min-height: 100% 라서, 내용이 넘칠 때만 박스보다 커진다.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || !editing || box.kind === 'image' || box.kind === 'shape') return;
+    if (!el || !editing || box.kind === 'image') return;
     const border = box.stroke !== 'none' && box.shape !== 'diamond' ? 3 : 0;
     const needed = el.offsetHeight + border;
     if (needed > box.h + 1) {
@@ -59,13 +59,14 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren
           : '12px 14px';
 
   const showHeader = box.kind !== 'image' && box.kind !== 'shape' && (box.name.trim() !== '' || box.kind !== 'text');
-  const isText = box.kind === 'text';
+  // 텍스트 박스와 워크박스는 글자 꾸미기와 가로/세로 정렬을 쓴다
+  const isText = box.kind === 'text' || box.kind === 'shape';
   // 텍스트 박스는 가로/세로 정렬을 직접 정하고, 다른 박스는 원·마름모일 때 가운데로 모은다
   const centered = !isText && (isEllipse || isDiamond);
   const handle = 9 / zoom;
   // 점 모눈은 캔버스의 점과 같은 자리(24px 격자)에 오도록 맞춘다
   const dots =
-    box.kind === 'shape' && hasChildren
+    box.kind === 'shape' && showDots
       ? {
           backgroundImage: `radial-gradient(circle, var(--dot) 1.15px, transparent 1.65px)`,
           backgroundSize: '24px 24px',
@@ -105,7 +106,7 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren
         </svg>
       )}
       {isDiamond && dots && <div className="diamond-dots" style={dots} aria-hidden="true" />}
-      {box.kind !== 'shape' && (
+      {(box.kind !== 'shape' || box.text !== '' || editing) && (
         <div
           ref={innerRef}
           className={`box-inner${centered ? ' centered' : ''}`}
@@ -186,7 +187,7 @@ function Content({ box, editing, result }: { box: Box; editing: boolean; result:
         </div>
       );
     case 'shape':
-      return null;
+      return <TextContent box={box} editing={editing} />;
   }
 }
 
