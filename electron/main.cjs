@@ -80,6 +80,8 @@ function createWindow() {
     show: false,
     backgroundColor: '#fbfaf7',
     title: 'Worksheet',
+    // 창과 작업 표시줄 아이콘
+    icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

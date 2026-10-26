@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- 16~32px 용: 여백을 줄이고 점을 키워 작게 보여도 또렷하게 -->
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#1F2328"/>
+  <g fill="#F7F5F0">
+    <circle cx="60" cy="60" r="27"/><circle cx="128" cy="60" r="27"/><circle cx="196" cy="60" r="27"/>
+    <circle cx="60" cy="128" r="27"/><circle cx="196" cy="128" r="27"/>
+    <circle cx="60" cy="196" r="27"/><circle cx="128" cy="196" r="27"/><circle cx="196" cy="196" r="27"/>
+  </g>
+  <circle cx="128" cy="128" r="30" fill="#6E93F0"/>
+</svg>

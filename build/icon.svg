@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Worksheet 앱 아이콘: 점 모눈 9개, 가운데 점은 강조색 -->
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="#1F2328"/>
+  <g fill="#F7F5F0">
+    <circle cx="78" cy="78" r="20"/><circle cx="128" cy="78" r="20"/><circle cx="178" cy="78" r="20"/>
+    <circle cx="78" cy="128" r="20"/><circle cx="178" cy="128" r="20"/>
+    <circle cx="78" cy="178" r="20"/><circle cx="128" cy="178" r="20"/><circle cx="178" cy="178" r="20"/>
+  </g>
+  <circle cx="128" cy="128" r="20" fill="#6E93F0"/>
+</svg>

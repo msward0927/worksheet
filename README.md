@@ -5,7 +5,7 @@
 
 ## 실행 (Windows 포터블)
 
-1. `Worksheet-0.1.8-portable.exe` 를 원하는 폴더(USB 도 가능)에 둡니다.
+1. `Worksheet-0.1.9-portable.exe` 를 원하는 폴더(USB 도 가능)에 둡니다.
 2. 더블클릭해서 실행합니다. 설치 과정은 없습니다.
 3. 최근 파일 목록은 실행 파일 옆 `WorksheetData` 폴더에 저장됩니다.
 
@@ -77,6 +77,8 @@ npm run dist:win      # Windows 포터블 exe + zip  → release/
 
 구성: Electron + React + TypeScript + Vite, 상태 관리는 zustand.
 
+앱 아이콘은 `build/icon.svg`(큰 크기)와 `build/icon-small.svg`(16~32px)에서 만든 `build/icon.ico` 입니다. 리눅스에서 Windows 용으로 빌드할 때는 wine 이 없어서 electron-builder 가 실행 파일에 아이콘을 넣지 못하므로, `build/afterPack.cjs` 가 resedit 으로 `Worksheet.exe` 의 아이콘을 바꿉니다.
+
 ```
 electron/main.cjs      창, 파일 대화상자, 최근 파일, 포터블 데이터 폴더
 electron/preload.cjs   화면에 노출하는 API
@@ -89,5 +91,4 @@ src/templates.ts       시작 화면 템플릿
 ## 아직 없는 것
 
 - PNG / PDF 내보내기, 인쇄
-- 앱 아이콘 (지금은 Electron 기본 아이콘)
 - macOS 빌드
