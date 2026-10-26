@@ -8,7 +8,7 @@ import { platform, readImageFile } from '../platform';
 import { useStore } from '../store';
 import type { Box, Tool } from '../types';
 import { useResults } from '../useResults';
-import { dotSpacing, dotStepPx, registerViewport, snap, snapTo, viewCenter, zoomAt } from '../viewport';
+import { dotBackground, dotSpacing, registerViewport, snap, snapTo, viewCenter, zoomAt } from '../viewport';
 import { BoxView } from './BoxView';
 import { EdgeLabels, EdgeLines } from './EdgeLayer';
 
@@ -455,7 +455,6 @@ export function Canvas() {
   };
 
   // 줌에 맞춰 점 간격을 2배씩 바꿔서 항상 적당한 밀도로 보이게 한다
-  const step = dotStepPx(view.zoom);
 
   const cursor = panning ? 'grabbing' : tool === 'hand' || spaceDown ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
   const single = selected.length === 1;
@@ -467,8 +466,7 @@ export function Canvas() {
       className="viewport"
       style={{
         cursor,
-        backgroundSize: `${step}px ${step}px`,
-        backgroundPosition: `${view.x - step / 2}px ${view.y - step / 2}px`,
+        ...dotBackground(view),
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

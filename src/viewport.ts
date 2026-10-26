@@ -21,10 +21,21 @@ export function viewportSize() {
 
 export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
+// 최소/최대 배율의 4배 안쪽으로 들어오면 확대/축소가 점점 느려진다
+const EASE_RANGE = Math.log(4);
+const MIN_SPEED = 0.12;
+
+/** 한계 배율에 가까울수록 배율 변화를 줄인 factor */
+export function easedFactor(zoom: number, factor: number): number {
+  const dist = factor < 1 ? Math.log(zoom / MIN_ZOOM) : Math.log(MAX_ZOOM / zoom);
+  const speed = Math.min(1, Math.max(MIN_SPEED, dist / EASE_RANGE));
+  return Math.pow(factor, speed);
+}
+
 /** 화면 좌표(뷰포트 기준) sx, sy 를 고정점으로 확대/축소 */
-export function zoomAt(sx: number, sy: number, factor: number) {
+export function zoomAt(sx: number, sy: number, factor: number, ease = true) {
   const { view } = useStore.getState().doc;
-  const zoom = clampZoom(view.zoom * factor);
+  const zoom = clampZoom(view.zoom * (ease ? easedFactor(view.zoom, factor) : factor));
   const wx = (sx - view.x) / view.zoom;
   const wy = (sy - view.y) / view.zoom;
   useStore.getState().setView({ zoom, x: sx - wx * zoom, y: sy - wy * zoom });
@@ -37,7 +48,8 @@ export function zoomBy(factor: number) {
 
 export function setZoom(zoom: number) {
   const { view } = useStore.getState().doc;
-  zoomBy(zoom / view.zoom);
+  const { w, h } = viewportSize();
+  zoomAt(w / 2, h / 2, zoom / view.zoom, false);
 }
 
 /** 화면 가운데의 월드 좌표 */
@@ -62,18 +74,24 @@ export function fitView(maxZoom = 1) {
   useStore.getState().setView(view);
 }
 
-/** 화면에 보이는 점 사이 간격(화면 px). 배율에 따라 2배씩 늘거나 줄어 항상 적당한 밀도로 보인다 */
-export function dotStepPx(zoom: number) {
-  let step = BASE_DOT * zoom;
-  while (step < 14) step *= 2;
-  while (step >= 56) step /= 2;
-  return step;
-}
-
-/** 화면에 보이는 점 사이 간격(월드 좌표) */
-export const dotSpacing = (zoom = useStore.getState().doc.view.zoom) => dotStepPx(zoom) / zoom;
+/** 점 사이 간격(월드 좌표). 종이에 인쇄된 점처럼 고정이고, 화면에서는 배율만큼 커지고 작아진다 */
+export const dotSpacing = () => BASE_DOT;
 
 export const snapTo = (v: number, g: number) => Math.round(v / g) * g;
 
 /** 가장 가까운 점 위치로 맞춘다 */
-export const snap = (v: number) => snapTo(v, dotSpacing());
+export const snap = (v: number) => snapTo(v, BASE_DOT);
+
+/** 배율에 맞춘 점 무늬 배경. 점이 너무 빽빽해지면 흐리게 해서 얼룩지지 않게 한다 */
+export function dotBackground(view: View) {
+  const step = BASE_DOT * view.zoom;
+  const r = 1.15 * view.zoom;
+  const alpha = Math.min(1, Math.max(0, (step - 3) / 6));
+  if (alpha === 0) return { backgroundImage: 'none' };
+  const color = alpha === 1 ? 'var(--dot)' : `color-mix(in srgb, var(--dot) ${Math.round(alpha * 100)}%, transparent)`;
+  return {
+    backgroundImage: `radial-gradient(circle, ${color} ${r}px, transparent ${r + 0.5}px)`,
+    backgroundSize: `${step}px ${step}px`,
+    backgroundPosition: `${view.x - step / 2}px ${view.y - step / 2}px`,
+  };
+}
