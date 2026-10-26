@@ -94,8 +94,7 @@ function DocPanel() {
   const title = useStore((s) => s.doc.title);
   const count = useStore((s) => s.doc.boxes.length);
   const edges = useStore((s) => s.doc.edges.length);
-  const snapOn = useStore((s) => s.snap);
-  const theme = useStore((s) => s.theme);
+  const open = useStore((s) => s.openSettings);
   return (
     <>
       <div className="panel-head">
@@ -105,40 +104,18 @@ function DocPanel() {
           박스 {count}개 · 연결 {edges}개
         </div>
       </div>
-      <Section title="보기">
-        <label className="toggle">
-          <span>항상 점에 맞추기</span>
-          <input type="checkbox" checked={snapOn} onChange={(e) => useStore.getState().setSnap(e.target.checked)} />
-        </label>
-        <div className="muted small">꺼져 있어도 Shift 를 누르고 옮기거나 만들면 점에 맞춰져요.</div>
-        <label className="toggle">
-          <span>어두운 테마</span>
-          <input type="checkbox" checked={theme === 'dark'} onChange={(e) => useStore.getState().setTheme(e.target.checked ? 'dark' : 'light')} />
-        </label>
-      </Section>
-      <Section title="사용법">
-        <ul className="help">
-          <li><b>휠</b> 확대 / 축소</li>
-          <li><b>Space+끌기</b> 화면 이동</li>
-          <li><b>빈 곳 끌기</b> 영역 선택 · <b>Ctrl+클릭</b> 선택 추가/빼기</li>
-          <li><b>Shift+끌기</b> 점에 맞춰 이동 (왼쪽 위 꼭짓점 기준)</li>
-          <li><b>Shift</b>를 누르고 만들기: 네 꼭짓점을 점에 맞춤</li>
-          <li><b>Alt+끌기</b> 박스 복사</li>
-          <li><b>더블클릭</b> 박스 내용 편집 · 빈 곳에 글상자</li>
-          <li>선택한 박스 오른쪽 <b>파란 점</b>을 끌어 연결</li>
-          <li>숫자 박스에 <b>이름</b>을 붙이고 수식에 <span className="mono">= 이름 + 이름</span></li>
-        </ul>
-      </Section>
-      <Section title="단축키">
-        <ul className="help keys">
-          <li><kbd>V</kbd> 선택 <kbd>H</kbd> 이동 <kbd>R</kbd> 사각형 <kbd>O</kbd> 원</li>
-          <li><kbd>T</kbd> 글 <kbd>S</kbd> 메모지 <kbd>N</kbd> 숫자 <kbd>F</kbd> 수식</li>
-          <li><kbd>C</kbd> 체크 <kbd>I</kbd> 이미지 <kbd>L</kbd> 연결선</li>
-          <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd> 실행 취소 / 다시</li>
-          <li><kbd>Ctrl</kbd>+<kbd>C</kbd> <kbd>V</kbd> <kbd>D</kbd> 복사 · 붙여넣기 · 복제</li>
-          <li><kbd>Ctrl</kbd>+<kbd>S</kbd> 저장 · <kbd>Ctrl</kbd>+<kbd>1</kbd> 화면 맞춤</li>
-        </ul>
-      </Section>
+      <div className="muted small">박스나 연결선을 고르면 여기에서 형식, 이름, 수식, 모양, 색을 바꿀 수 있어요.</div>
+      <div className="help-links">
+        <button className="btn" onClick={() => open('mouse')}>
+          마우스 조작
+        </button>
+        <button className="btn" onClick={() => open('keys')}>
+          단축키
+        </button>
+        <button className="btn" onClick={() => open('formula')}>
+          수식 쓰는 법
+        </button>
+      </div>
     </>
   );
 }

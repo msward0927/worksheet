@@ -38,20 +38,25 @@ export function themed(color: string, theme: Theme): string {
   return DARK[color.toLowerCase()] ?? color;
 }
 
-const KEY = 'worksheet-theme';
-
-export function loadTheme(): Theme {
+// 설정값은 이 컴퓨터(포터블이면 WorksheetData 폴더)에만 저장한다
+export function loadPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    return localStorage.getItem(KEY) === 'dark' ? 'dark' : 'light';
+    const v = localStorage.getItem(key) as T | null;
+    return v !== null && allowed.includes(v) ? v : fallback;
   } catch {
-    return 'light';
+    return fallback;
   }
 }
 
-export function saveTheme(theme: Theme) {
+export function savePref(key: string, value: string) {
   try {
-    localStorage.setItem(KEY, theme);
+    localStorage.setItem(key, value);
   } catch {
     // 저장하지 못해도 이번 실행 동안은 유지된다
   }
 }
+
+export const loadTheme = (): Theme => loadPref('worksheet-theme', ['light', 'dark'] as const, 'light');
+export const saveTheme = (theme: Theme) => savePref('worksheet-theme', theme);
+export const loadSnap = () => loadPref('worksheet-snap', ['on', 'off'] as const, 'off') === 'on';
+export const saveSnap = (on: boolean) => savePref('worksheet-snap', on ? 'on' : 'off');

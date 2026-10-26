@@ -188,6 +188,8 @@ ipcMain.handle('app:initialFile', async () => {
   return readSheet(p);
 });
 
+ipcMain.handle('app:dataDir', async () => app.getPath('userData'));
+
 ipcMain.on('app:setDirty', (_e, value) => {
   dirty = !!value;
   if (win) win.setDocumentEdited(dirty);

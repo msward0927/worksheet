@@ -18,6 +18,8 @@ export interface DesktopApi {
   forceClose(): void;
   onSaveAndClose(cb: () => void): void;
   initialFile(): Promise<FileResult | null>;
+  /** 설정과 최근 파일 목록이 저장되는 폴더 */
+  dataDir(): Promise<string | null>;
 }
 
 declare global {
@@ -77,6 +79,9 @@ const browserApi: DesktopApi = {
   forceClose() {},
   onSaveAndClose() {},
   async initialFile() {
+    return null;
+  },
+  async dataDir() {
     return null;
   },
 };

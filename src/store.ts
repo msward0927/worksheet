@@ -2,11 +2,13 @@
 
 import { create } from 'zustand';
 import { cloneBoxes, makeEdge } from './boxes';
-import { loadTheme, saveTheme, type Theme } from './theme';
+import { loadSnap, loadTheme, saveSnap, saveTheme, type Theme } from './theme';
 import type { Box, Doc, Edge, Tool, View } from './types';
 
 const HISTORY_LIMIT = 200;
 const COALESCE_MS = 1200;
+
+export type SettingsTab = 'display' | 'canvas' | 'mouse' | 'keys' | 'formula' | 'about';
 
 export type AlignMode = 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom';
 
@@ -26,6 +28,8 @@ interface State {
   editingId: string | null;
   snap: boolean;
   theme: Theme;
+  settingsOpen: boolean;
+  settingsTab: SettingsTab;
   past: Doc[];
   future: Doc[];
   clipboard: Clipboard | null;
@@ -39,6 +43,8 @@ interface State {
   setTool(tool: Tool): void;
   setSnap(snap: boolean): void;
   setTheme(theme: Theme): void;
+  openSettings(tab?: SettingsTab): void;
+  closeSettings(): void;
   setEditing(id: string | null): void;
   select(ids: string[], edge?: string | null): void;
   showToast(msg: string): void;
@@ -83,8 +89,10 @@ export const useStore = create<State>((set, get) => ({
   selected: [],
   selectedEdge: null,
   editingId: null,
-  snap: false,
+  snap: loadSnap(),
   theme: loadTheme(),
+  settingsOpen: false,
+  settingsTab: 'display',
   past: [],
   future: [],
   clipboard: null,
@@ -121,11 +129,18 @@ export const useStore = create<State>((set, get) => ({
     set({ tool, editingId: null });
   },
   setSnap(snap) {
+    saveSnap(snap);
     set({ snap });
   },
   setTheme(theme) {
     saveTheme(theme);
     set({ theme });
+  },
+  openSettings(tab) {
+    set((s) => ({ settingsOpen: true, settingsTab: tab ?? s.settingsTab, editingId: null }));
+  },
+  closeSettings() {
+    set({ settingsOpen: false });
   },
   setEditing(id) {
     lastKey = undefined;

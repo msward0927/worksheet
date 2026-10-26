@@ -3,7 +3,8 @@ import { Canvas, pasteFallback } from './components/Canvas';
 import { Home } from './components/Home';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { TOOLS, Toolbar } from './components/Toolbar';
-import { ThemeButton, TopBar, ZoomControls } from './components/TopBar';
+import { SettingsDialog } from './components/SettingsDialog';
+import { SettingsButton, ThemeButton, TopBar, ZoomControls } from './components/TopBar';
 import { newFromTemplate, openContent, openFromDialog, saveDoc } from './fileOps';
 import { fileNameOf, platform } from './platform';
 import { useStore } from './store';
@@ -20,6 +21,17 @@ function useKeyboard() {
       const s = useStore.getState();
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
+
+      if (mod && key === ',') {
+        e.preventDefault();
+        s.openSettings();
+        return;
+      }
+      // 설정 창이 열려 있으면 Esc 로 닫는 것 말고는 캔버스 단축키를 쓰지 않는다
+      if (s.settingsOpen) {
+        if (e.key === 'Escape') s.closeSettings();
+        return;
+      }
 
       // 입력 중에도 동작하는 단축키
       if (mod && key === 's') {
@@ -125,6 +137,7 @@ function useDesktopSync() {
 export function App() {
   const screen = useStore((s) => s.screen);
   const toast = useStore((s) => s.toast);
+  const settingsOpen = useStore((s) => s.settingsOpen);
   useKeyboard();
   useDesktopSync();
 
@@ -143,6 +156,7 @@ export function App() {
             </div>
             <div className="spacer" />
             <ThemeButton />
+            <SettingsButton />
           </header>
           <Home />
         </>
@@ -159,6 +173,7 @@ export function App() {
           </div>
         </>
       )}
+      {settingsOpen && <SettingsDialog />}
       {toast && (
         <div className="toast" role="status">
           {toast}

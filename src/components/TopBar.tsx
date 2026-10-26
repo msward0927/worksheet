@@ -77,6 +77,14 @@ export function ThemeButton() {
   );
 }
 
+export function SettingsButton() {
+  return (
+    <button className="icon-btn" onClick={() => useStore.getState().openSettings()} aria-label="설정" title="설정 (Ctrl+,)">
+      <Icon.gear />
+    </button>
+  );
+}
+
 export function TopBar() {
   const title = useStore((s) => s.doc.title);
   const filePath = useStore((s) => s.filePath);
@@ -105,7 +113,8 @@ export function TopBar() {
             { label: '열기…', shortcut: 'Ctrl+O', run: () => void openFromDialog() },
             { label: '저장', shortcut: 'Ctrl+S', run: () => void saveDoc(), divider: true },
             { label: '다른 이름으로 저장…', shortcut: 'Ctrl+Shift+S', run: () => void saveDoc(true) },
-            { label: '시작 화면', run: () => s.goHome(), divider: true },
+            { label: '설정…', shortcut: 'Ctrl+,', run: () => s.openSettings(), divider: true },
+            { label: '시작 화면', run: () => s.goHome() },
           ]}
         />
         <Menu
@@ -146,6 +155,7 @@ export function TopBar() {
       </div>
       <div className="top-actions">
         <ThemeButton />
+        <SettingsButton />
         <button className="icon-btn" onClick={() => s.undo()} disabled={!canUndo} aria-label="실행 취소" title="실행 취소 (Ctrl+Z)">
           <Icon.undo />
         </button>

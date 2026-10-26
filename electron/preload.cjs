@@ -18,4 +18,5 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('app:save-and-close', () => cb());
   },
   initialFile: () => ipcRenderer.invoke('app:initialFile'),
+  dataDir: () => ipcRenderer.invoke('app:dataDir'),
 });

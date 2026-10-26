@@ -110,7 +110,7 @@ export function Canvas() {
   // 스페이스를 누르고 있으면 끌어서 화면 이동
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !isTyping(e.target)) {
+      if (e.code === 'Space' && !isTyping(e.target) && !useStore.getState().settingsOpen) {
         e.preventDefault();
         setSpaceDown(true);
       }
