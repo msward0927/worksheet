@@ -6,7 +6,7 @@ import type { View } from './types';
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 8;
-export const SNAP = 12;
+export const BASE_DOT = 24;
 
 let element: HTMLElement | null = null;
 
@@ -62,4 +62,18 @@ export function fitView(maxZoom = 1) {
   useStore.getState().setView(view);
 }
 
-export const snap = (v: number) => Math.round(v / SNAP) * SNAP;
+/** 화면에 보이는 점 사이 간격(화면 px). 배율에 따라 2배씩 늘거나 줄어 항상 적당한 밀도로 보인다 */
+export function dotStepPx(zoom: number) {
+  let step = BASE_DOT * zoom;
+  while (step < 14) step *= 2;
+  while (step >= 56) step /= 2;
+  return step;
+}
+
+/** 화면에 보이는 점 사이 간격(월드 좌표) */
+export const dotSpacing = (zoom = useStore.getState().doc.view.zoom) => dotStepPx(zoom) / zoom;
+
+export const snapTo = (v: number, g: number) => Math.round(v / g) * g;
+
+/** 가장 가까운 점 위치로 맞춘다 */
+export const snap = (v: number) => snapTo(v, dotSpacing());

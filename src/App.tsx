@@ -8,7 +8,7 @@ import { newFromTemplate, openContent, openFromDialog, saveDoc } from './fileOps
 import { fileNameOf, platform } from './platform';
 import { useStore } from './store';
 import { TEMPLATES } from './templates';
-import { fitView, setZoom, snap, zoomBy } from './viewport';
+import { BASE_DOT, fitView, setZoom, zoomBy } from './viewport';
 
 function isTyping(el: EventTarget | null) {
   return el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
@@ -74,14 +74,15 @@ function useKeyboard() {
       }
       if (e.key.startsWith('Arrow') && s.selected.length > 0) {
         e.preventDefault();
-        const step = e.shiftKey ? 24 : s.snap ? 12 : 1;
+        // 방향키는 1px, Shift+방향키는 점 한 칸씩 옮긴다
+        const step = e.shiftKey ? BASE_DOT : 1;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
         const ids = new Set(s.selected);
         s.change(
           (d) => ({
             ...d,
-            boxes: d.boxes.map((b) => (ids.has(b.id) ? { ...b, x: s.snap && !e.shiftKey ? snap(b.x + dx) : b.x + dx, y: s.snap && !e.shiftKey ? snap(b.y + dy) : b.y + dy } : b)),
+            boxes: d.boxes.map((b) => (ids.has(b.id) ? { ...b, x: b.x + dx, y: b.y + dy } : b)),
           }),
           'nudge',
         );

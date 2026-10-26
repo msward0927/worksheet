@@ -104,16 +104,19 @@ function DocPanel() {
       </div>
       <Section title="보기">
         <label className="toggle">
-          <span>격자에 맞추기</span>
+          <span>항상 점에 맞추기</span>
           <input type="checkbox" checked={snapOn} onChange={(e) => useStore.getState().setSnap(e.target.checked)} />
         </label>
-        <div className="muted small">끄는 동안에는 Alt 를 누르고 끌어도 자유롭게 움직여요.</div>
+        <div className="muted small">꺼져 있어도 Ctrl 을 누르고 옮기거나 만들면 점에 맞춰져요.</div>
       </Section>
       <Section title="사용법">
         <ul className="help">
           <li><b>휠</b> 확대 / 축소 · <b>Shift+휠</b> 가로 이동</li>
           <li><b>빈 곳 끌기</b> · <b>Space+끌기</b> 화면 이동</li>
           <li><b>Shift+끌기</b> 여러 박스 선택</li>
+          <li><b>Ctrl+끌기</b> 점에 맞춰 이동 (왼쪽 위 꼭짓점 기준)</li>
+          <li><b>Ctrl</b>을 누르고 만들기: 네 꼭짓점을 점에 맞춤</li>
+          <li><b>Alt+끌기</b> 박스 복사</li>
           <li><b>더블클릭</b> 박스 내용 편집 · 빈 곳에 글상자</li>
           <li>선택한 박스 오른쪽 <b>파란 점</b>을 끌어 연결</li>
           <li>숫자 박스에 <b>이름</b>을 붙이고 수식에 <span className="mono">= 이름 + 이름</span></li>

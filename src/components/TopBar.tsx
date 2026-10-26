@@ -111,7 +111,7 @@ export function TopBar() {
             { label: '축소', shortcut: 'Ctrl+-', run: () => zoomBy(0.8) },
             { label: '100%', shortcut: 'Ctrl+0', run: () => setZoom(1) },
             { label: '화면에 맞추기', shortcut: 'Ctrl+1', run: () => fitView() },
-            { label: '격자에 맞추기', checked: snapOn, run: () => s.setSnap(!snapOn), divider: true },
+            { label: '항상 점에 맞추기', checked: snapOn, run: () => s.setSnap(!snapOn), divider: true },
           ]}
         />
       </nav>

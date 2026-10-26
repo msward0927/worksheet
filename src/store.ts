@@ -1,7 +1,7 @@
 // 앱 전체 상태. 문서(Doc)를 바꾸는 동작은 모두 여기를 거치고, 실행 취소 기록도 여기서 관리한다.
 
 import { create } from 'zustand';
-import { makeEdge, uid } from './boxes';
+import { cloneBoxes, makeEdge } from './boxes';
 import type { Box, Doc, Edge, Tool, View } from './types';
 
 const HISTORY_LIMIT = 200;
@@ -80,7 +80,7 @@ export const useStore = create<State>((set, get) => ({
   selected: [],
   selectedEdge: null,
   editingId: null,
-  snap: true,
+  snap: false,
   past: [],
   future: [],
   clipboard: null,
@@ -212,13 +212,9 @@ export const useStore = create<State>((set, get) => ({
     const minY = Math.min(...clip.boxes.map((b) => b.y));
     const dx = at ? at.x - minX : 24;
     const dy = at ? at.y - minY : 24;
-    const idMap = new Map<string, string>();
-    const boxes = clip.boxes.map((b) => {
-      const id = uid();
-      idMap.set(b.id, id);
-      return { ...b, id, x: b.x + dx, y: b.y + dy, items: b.items.map((i) => ({ ...i, id: uid() })) };
-    });
-    const edges = clip.edges.map((e) => ({ ...e, id: uid(), from: idMap.get(e.from)!, to: idMap.get(e.to)! }));
+    const cloned = cloneBoxes(clip.boxes, clip.edges, get().doc.boxes);
+    const boxes = cloned.boxes.map((b) => ({ ...b, x: b.x + dx, y: b.y + dy }));
+    const edges = cloned.edges;
     get().change((d) => ({ ...d, boxes: [...d.boxes, ...boxes], edges: [...d.edges, ...edges] }));
     // 다음 붙여넣기가 같은 자리에 겹치지 않도록 클립보드도 옮겨 둔다
     set({ selected: boxes.map((b) => b.id), selectedEdge: null, clipboard: at ? clip : { boxes, edges } });

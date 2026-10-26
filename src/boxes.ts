@@ -86,6 +86,36 @@ export function boxForTool(tool: Tool, x: number, y: number, existingNames: Set<
   }
 }
 
+/** 이름을 부르는 박스(숫자/수식/체크)는 복사본 이름이 겹치지 않게 뒤에 숫자를 붙인다 */
+export function uniqueName(name: string, taken: Set<string>): string {
+  if (!taken.has(name)) return name;
+  const base = name.replace(/\d+$/, '');
+  for (let i = 2; ; i++) {
+    const n = `${base}${i}`;
+    if (!taken.has(n)) return n;
+  }
+}
+
+/** 박스들과 그 사이의 연결선을 새 id 로 복제한다. 위치는 그대로 둔다 */
+export function cloneBoxes(boxes: Box[], edges: Edge[], allBoxes: Box[]): { boxes: Box[]; edges: Edge[]; idMap: Map<string, string> } {
+  const idMap = new Map<string, string>();
+  const taken = new Set(allBoxes.map((b) => b.name.trim()).filter(Boolean));
+  const clones = boxes.map((b) => {
+    const id = uid();
+    idMap.set(b.id, id);
+    let name = b.name;
+    if (name.trim() && (b.kind === 'number' || b.kind === 'formula' || b.kind === 'checklist')) {
+      name = uniqueName(name.trim(), taken);
+      taken.add(name);
+    }
+    return { ...b, id, name, items: b.items.map((i) => ({ ...i, id: uid() })) };
+  });
+  const clonedEdges = edges
+    .filter((e) => idMap.has(e.from) && idMap.has(e.to))
+    .map((e) => ({ ...e, id: uid(), from: idMap.get(e.from)!, to: idMap.get(e.to)! }));
+  return { boxes: clones, edges: clonedEdges, idMap };
+}
+
 export function makeEdge(from: string, to: string, patch: Partial<Edge> = {}): Edge {
   return {
     id: uid(),

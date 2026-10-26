@@ -1,14 +1,14 @@
 // 점 모눈종이 무한 캔버스. 화면 이동/확대, 박스 만들기/옮기기/크기 조절, 연결선 긋기를 처리한다.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { boxForTool, makeBox } from '../boxes';
+import { boxForTool, cloneBoxes, makeBox } from '../boxes';
 import { openContent } from '../fileOps';
 import { intersects, type Pt, type Rect } from '../geometry';
 import { platform, readImageFile } from '../platform';
 import { useStore } from '../store';
 import type { Box, Tool } from '../types';
 import { useResults } from '../useResults';
-import { registerViewport, snap, viewCenter, zoomAt } from '../viewport';
+import { dotSpacing, dotStepPx, registerViewport, snap, snapTo, viewCenter, zoomAt } from '../viewport';
 import { BoxView } from './BoxView';
 import { EdgeLabels, EdgeLines } from './EdgeLayer';
 
@@ -18,7 +18,7 @@ type Drag =
   | { kind: 'pan'; sx: number; sy: number; vx: number; vy: number; moved: boolean; clearOnClick: boolean }
   | { kind: 'move'; start: Pt; origins: Map<string, Pt>; primary: string; moved: boolean; clickedId: string; shift: boolean }
   | { kind: 'resize'; id: string; corner: Corner; start: Pt; orig: Rect; moved: boolean }
-  | { kind: 'create'; tool: Tool; start: Pt; cur: Pt }
+  | { kind: 'create'; tool: Tool; start: Pt; cur: Pt; ctrl: boolean }
   | { kind: 'connect'; from: string; cur: Pt }
   | { kind: 'marquee'; start: Pt; cur: Pt; base: string[] };
 
@@ -30,6 +30,21 @@ const MIN_H = 28;
 export const CLIP_MARKER = 'worksheet-boxes:';
 
 const rectFrom = (a: Pt, b: Pt): Rect => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) });
+
+/** 만들 박스의 영역. 점에 맞추면 네 꼭짓점이 모두 점 위에 오도록 한다 */
+function createRect(start: Pt, cur: Pt, snapOn: boolean): Rect & { dragged: boolean } {
+  const r = rectFrom(start, cur);
+  const dragged = r.w > 8 || r.h > 8;
+  if (!snapOn) return { ...r, dragged };
+  const g = dotSpacing();
+  const x = snapTo(r.x, g);
+  const y = snapTo(r.y, g);
+  if (!dragged) return { x, y, w: 0, h: 0, dragged };
+  return { x, y, w: Math.max(g, snapTo(r.x + r.w, g) - x), h: Math.max(g, snapTo(r.y + r.h, g) - y), dragged };
+}
+
+/** 최소 크기 이상이면서 점 간격의 배수인 크기 */
+const snapSize = (v: number, min: number, g: number) => Math.max(Math.ceil(min / g) * g, snapTo(v, g));
 
 function isTyping(el: EventTarget | null) {
   return el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
@@ -144,7 +159,7 @@ export function Canvas() {
       const c = viewCenter();
       if (file) {
         e.preventDefault();
-        const box = await imageBox(await readImageFile(file), snap(c.x - 120), snap(c.y - 90));
+        const box = await imageBox(await readImageFile(file), Math.round(c.x - 120), Math.round(c.y - 90));
         s.addBox(box);
         return;
       }
@@ -161,7 +176,7 @@ export function Canvas() {
       }
       if (text.trim()) {
         e.preventDefault();
-        s.addBox(makeBox('text', snap(c.x - 120), snap(c.y - 40), { text, w: 280, h: 120 }));
+        s.addBox(makeBox('text', Math.round(c.x - 120), Math.round(c.y - 40), { text, w: 280, h: 120 }));
         return;
       }
       s.paste();
@@ -176,29 +191,43 @@ export function Canvas() {
     };
   }, []);
 
-  const finishCreate = async (t: Tool, start: Pt, cur: Pt) => {
+  const finishCreate = async (t: Tool, start: Pt, cur: Pt, snapOn: boolean) => {
     const s = useStore.getState();
     const names = new Set(s.doc.boxes.map((b) => b.name));
-    const r = rectFrom(start, cur);
-    const dragged = r.w > 8 || r.h > 8;
-    const x = s.snap ? snap(r.x) : r.x;
-    const y = s.snap ? snap(r.y) : r.y;
+    const r = createRect(start, cur, snapOn);
     let box: Box | null;
     if (t === 'image') {
       const data = await platform.openImage();
       if (!data) return;
-      box = await imageBox(data, x, y);
+      box = await imageBox(data, r.x, r.y);
     } else {
-      box = boxForTool(t, x, y, names);
+      box = boxForTool(t, r.x, r.y, names);
     }
     if (!box) return;
-    if (dragged && t !== 'image') {
-      box.w = Math.max(MIN_W, s.snap ? snap(r.w) : r.w);
-      box.h = Math.max(MIN_H, s.snap ? snap(r.h) : r.h);
+    if (r.dragged && t !== 'image') {
+      box.w = Math.max(MIN_W, r.w);
+      box.h = Math.max(MIN_H, r.h);
+    }
+    if (snapOn) {
+      const g = dotSpacing();
+      box.w = snapSize(box.w, MIN_W, g);
+      box.h = snapSize(box.h, MIN_H, g);
     }
     s.addBox(box);
     s.setTool('select');
     if (box.kind !== 'image') s.setEditing(box.id);
+  };
+
+  /** Alt 를 누르고 끌기 시작하면 선택한 박스를 복제하고, 복제본을 끌고 간다 */
+  const startCopyDrag = (d: Extract<Drag, { kind: 'move' }>) => {
+    const s = useStore.getState();
+    const source = s.doc.boxes.filter((b) => d.origins.has(b.id));
+    const { boxes, edges, idMap } = cloneBoxes(source, s.doc.edges, s.doc.boxes);
+    s.changeSilently((doc) => ({ ...doc, boxes: [...doc.boxes, ...boxes], edges: [...doc.edges, ...edges] }));
+    d.origins = new Map(boxes.map((b) => [b.id, { x: b.x, y: b.y }]));
+    d.primary = idMap.get(d.primary) ?? d.primary;
+    d.clickedId = d.primary;
+    s.select(boxes.map((b) => b.id));
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -230,7 +259,7 @@ export function Canvas() {
     } else if (connectEl && boxId) {
       drag.current = { kind: 'connect', from: boxId, cur: p };
     } else if (CREATE_TOOLS.includes(s.tool)) {
-      drag.current = { kind: 'create', tool: s.tool, start: p, cur: p };
+      drag.current = { kind: 'create', tool: s.tool, start: p, cur: p, ctrl: e.ctrlKey || e.metaKey };
     } else if (s.tool === 'connect') {
       if (!boxId) return;
       drag.current = { kind: 'connect', from: boxId, cur: p };
@@ -266,7 +295,8 @@ export function Canvas() {
     if (!d) return;
     const s = useStore.getState();
     const p = toWorld(e.clientX, e.clientY);
-    const useSnap = s.snap && !e.altKey;
+    // Ctrl 을 누르고 있거나 '항상 점에 맞추기'가 켜져 있으면 점에 맞춘다
+    const useSnap = s.snap || e.ctrlKey || e.metaKey;
     switch (d.kind) {
       case 'pan': {
         const dx = e.clientX - d.sx;
@@ -281,8 +311,12 @@ export function Canvas() {
         let dx = p.x - d.start.x;
         let dy = p.y - d.start.y;
         if (!d.moved && Math.hypot(dx, dy) * s.doc.view.zoom < 3) return;
-        if (!d.moved) s.checkpoint();
+        if (!d.moved) {
+          s.checkpoint();
+          if (e.altKey) startCopyDrag(d);
+        }
         d.moved = true;
+        // 끄는 박스의 왼쪽 위 꼭짓점을 점에 맞추고, 함께 선택된 박스는 같은 만큼 옮긴다
         const o = d.origins.get(d.primary)!;
         if (useSnap) {
           dx = snap(o.x + dx) - o.x;
@@ -325,10 +359,13 @@ export function Canvas() {
         }));
         return;
       }
-      case 'create':
+      case 'create': {
         d.cur = p;
-        setOverlay({ kind: 'rect', r: rectFrom(d.start, p), marquee: false });
+        d.ctrl = e.ctrlKey || e.metaKey;
+        const r = createRect(d.start, p, s.snap || d.ctrl);
+        setOverlay({ kind: 'rect', r, marquee: false });
         return;
+      }
       case 'connect': {
         d.cur = p;
         const from = s.doc.boxes.find((b) => b.id === d.from);
@@ -357,7 +394,7 @@ export function Canvas() {
         if (!d.moved && !d.shift && s.selected.length > 1) s.select([d.clickedId]);
         return;
       case 'create':
-        void finishCreate(d.tool, d.start, d.cur);
+        void finishCreate(d.tool, d.start, d.cur, s.snap || d.ctrl || e.ctrlKey || e.metaKey);
         return;
       case 'connect': {
         const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-box-id]');
@@ -394,7 +431,8 @@ export function Canvas() {
     if (target.closest('[data-edge-id]') || s.tool !== 'select') return;
     // 빈 곳을 더블클릭하면 글상자를 만든다
     const p = toWorld(e.clientX, e.clientY);
-    const box = boxForTool('text', s.snap ? snap(p.x) : p.x, s.snap ? snap(p.y - 24) : p.y - 24, new Set());
+    const snapOn = s.snap || e.ctrlKey || e.metaKey;
+    const box = boxForTool('text', snapOn ? snap(p.x) : p.x, snapOn ? snap(p.y - 24) : p.y - 24, new Set());
     if (box) {
       s.addBox(box);
       s.setEditing(box.id);
@@ -414,16 +452,16 @@ export function Canvas() {
     }
     let offset = 0;
     for (const f of files.filter((f) => f.type.startsWith('image/'))) {
-      const box = await imageBox(await readImageFile(f), snap(p.x + offset), snap(p.y + offset));
+      const x = p.x + offset;
+      const y = p.y + offset;
+      const box = await imageBox(await readImageFile(f), s.snap ? snap(x) : x, s.snap ? snap(y) : y);
       s.addBox(box);
       offset += 32;
     }
   };
 
   // 줌에 맞춰 점 간격을 2배씩 바꿔서 항상 적당한 밀도로 보이게 한다
-  let step = 24 * view.zoom;
-  while (step < 14) step *= 2;
-  while (step >= 56) step /= 2;
+  const step = dotStepPx(view.zoom);
 
   const cursor = panning ? 'grabbing' : tool === 'hand' || spaceDown ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
   const single = selected.length === 1;
@@ -493,6 +531,8 @@ export function Canvas() {
           왼쪽 도구로 워크박스를 만들거나, 빈 곳을 더블클릭해 글을 써 보세요.
           <br />
           휠: 확대/축소 · 빈 곳 끌기: 화면 이동 · Shift+끌기: 여러 개 선택
+          <br />
+          Ctrl+끌기: 점에 맞추기 · Alt+끌기: 복사
         </div>
       )}
     </div>
