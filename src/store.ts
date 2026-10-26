@@ -67,6 +67,7 @@ interface State {
   deleteSelected(): void;
   addEdge(from: string, to: string): void;
   updateEdge(id: string, patch: Partial<Edge>, key?: string): void;
+  updateEdges(ids: string[], patch: Partial<Edge>): void;
   copy(): void;
   paste(at?: { x: number; y: number }): void;
   duplicate(): void;
@@ -235,6 +236,10 @@ export const useStore = create<State>((set, get) => ({
     const edge = makeEdge(from, to);
     get().change((d) => ({ ...d, edges: [...d.edges, edge] }));
     set({ selected: [], selectedEdge: edge.id });
+  },
+  updateEdges(ids, patch) {
+    const set_ = new Set(ids);
+    get().change((d) => ({ ...d, edges: d.edges.map((e) => (set_.has(e.id) ? { ...e, ...patch } : e)) }));
   },
   updateEdge(id, patch, key) {
     get().change(

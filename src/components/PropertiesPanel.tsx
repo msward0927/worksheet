@@ -7,7 +7,7 @@ import { FUNCTION_NAMES, formatNumber, parseNumberInput, references, type BoxRes
 import { platform } from '../platform';
 import { useStore, type AlignMode } from '../store';
 import { themed } from '../theme';
-import type { Box, BoxKind, Edge, NumberFormat, Shape, TextAlign, VAlign } from '../types';
+import type { Box, BoxKind, Edge, EdgeSide, NumberFormat, Shape, TextAlign, VAlign } from '../types';
 import { useResults } from '../useResults';
 import { Icon } from './icons';
 
@@ -238,6 +238,7 @@ function BoxPanel({ box }: { box: Box }) {
           ))}
         </div>
       </Section>
+      <BoxEdgeSides box={box} />
       <ArrangeButtons />
     </>
   );
@@ -614,7 +615,62 @@ function MultiPanel({ boxes }: { boxes: Box[] }) {
   );
 }
 
+const SIDES: { v: EdgeSide; label: string; title: string }[] = [
+  { v: 'auto', label: '자동', title: '두 박스 위치를 보고 알아서' },
+  { v: 'left', label: '왼쪽', title: '왼쪽 테두리' },
+  { v: 'top', label: '위', title: '위쪽 테두리' },
+  { v: 'bottom', label: '아래', title: '아래쪽 테두리' },
+  { v: 'right', label: '오른쪽', title: '오른쪽 테두리' },
+];
+
+/** 여러 선의 값이 다 같으면 그 값, 아니면 null (어느 버튼도 눌리지 않은 상태) */
+const common = <T,>(values: T[]): T | null => (values.length > 0 && values.every((v) => v === values[0]) ? values[0] : null);
+
+function SideSeg({ value, onChange }: { value: EdgeSide | null; onChange: (v: EdgeSide) => void }) {
+  return (
+    <div className="seg sides" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+      {SIDES.map((o) => (
+        <button key={o.v} className={o.v === value ? 'on' : ''} onClick={() => onChange(o.v)} title={o.title} aria-pressed={o.v === value}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 박스를 골랐을 때: 이 박스에서 나가는 선 / 들어오는 선이 붙는 테두리를 한꺼번에 정한다 */
+function BoxEdgeSides({ box }: { box: Box }) {
+  const edges = useStore((s) => s.doc.edges);
+  const out = edges.filter((e) => e.from === box.id);
+  const inc = edges.filter((e) => e.to === box.id);
+  if (out.length === 0 && inc.length === 0) return null;
+  const s = useStore.getState();
+  return (
+    <Section title="연결선 테두리">
+      {out.length > 0 && (
+        <>
+          <span className="sub-title">이 박스에서 나가는 선 {out.length}개 · 시작 테두리</span>
+          <SideSeg value={common(out.map((e) => e.fromSide))} onChange={(fromSide) => s.updateEdges(out.map((e) => e.id), { fromSide })} />
+          <span className="sub-title">그 선들이 화살표로 붙는 테두리</span>
+          <SideSeg value={common(out.map((e) => e.toSide))} onChange={(toSide) => s.updateEdges(out.map((e) => e.id), { toSide })} />
+        </>
+      )}
+      {inc.length > 0 && (
+        <>
+          <span className="sub-title">이 박스로 들어오는 선 {inc.length}개 · 화살표가 붙는 테두리</span>
+          <SideSeg value={common(inc.map((e) => e.toSide))} onChange={(toSide) => s.updateEdges(inc.map((e) => e.id), { toSide })} />
+        </>
+      )}
+    </Section>
+  );
+}
+
 function EdgePanel({ edge, boxes }: { edge: Edge; boxes: Box[] }) {
+  const [together, setTogether] = useState(false);
+  const allEdges = useStore((st) => st.doc.edges);
+  const siblings = allEdges.filter((e) => e.from === edge.from);
+  // '함께 바꾸기'를 켜면 같은 박스에서 나가는 선 모두에 적용한다
+  const setSide = (patch: Partial<Edge>) => (together ? useStore.getState().updateEdges(siblings.map((e) => e.id), patch) : useStore.getState().updateEdge(edge.id, patch));
   const s = useStore.getState();
   const update = (patch: Partial<Edge>, key?: string) => s.updateEdge(edge.id, patch, key);
   const name = (id: string) => {
@@ -633,6 +689,18 @@ function EdgePanel({ edge, boxes }: { edge: Edge; boxes: Box[] }) {
         <span className="section-title">라벨</span>
         <input value={edge.label} placeholder="예: 라이벌, 원인 → 결과" onChange={(e) => update({ label: e.target.value }, `${edge.id}:label`)} />
       </label>
+      <Section title="시작 테두리" hint={name(edge.from)}>
+        <SideSeg value={edge.fromSide} onChange={(fromSide) => setSide({ fromSide })} />
+      </Section>
+      <Section title="화살표가 붙는 테두리" hint={name(edge.to)}>
+        <SideSeg value={edge.toSide} onChange={(toSide) => setSide({ toSide })} />
+      </Section>
+      {siblings.length > 1 && (
+        <label className="toggle small">
+          <span>같은 박스에서 나가는 선 {siblings.length}개 모두 함께 바꾸기</span>
+          <input type="checkbox" checked={together} onChange={(e) => setTogether(e.target.checked)} />
+        </label>
+      )}
       <Section title="선 모양">
         <Seg
           value={edge.curve}

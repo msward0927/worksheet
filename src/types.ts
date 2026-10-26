@@ -58,6 +58,8 @@ export interface Box {
 export type ArrowMode = 'none' | 'end' | 'both';
 export type EdgeCurve = 'straight' | 'curved' | 'elbow';
 export type EdgeStyle = 'solid' | 'dashed';
+/** 연결선이 붙는 박스 테두리 */
+export type EdgeSide = 'auto' | 'left' | 'top' | 'bottom' | 'right';
 
 export interface Edge {
   id: string;
@@ -69,6 +71,9 @@ export interface Edge {
   style: EdgeStyle;
   color: string;
   width: number;
+  /** 시작 박스에서 나가는 테두리 / 끝 박스(화살표)에 붙는 테두리 */
+  fromSide: EdgeSide;
+  toSide: EdgeSide;
 }
 
 export interface View {

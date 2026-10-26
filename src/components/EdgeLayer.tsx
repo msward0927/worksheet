@@ -19,7 +19,7 @@ function geometries(edges: Edge[], boxes: Box[]) {
   for (const edge of edges) {
     const a = byId.get(edge.from);
     const b = byId.get(edge.to);
-    if (a && b) out.push({ edge, g: edgeGeometry(a, b, edge.curve) });
+    if (a && b) out.push({ edge, g: edgeGeometry(a, b, edge.curve, edge.fromSide, edge.toSide) });
   }
   return out;
 }

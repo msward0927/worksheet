@@ -144,6 +144,8 @@ export function makeEdge(from: string, to: string, patch: Partial<Edge> = {}): E
     style: 'solid',
     color: '#3D4148',
     width: 1.6,
+    fromSide: 'auto',
+    toSide: 'auto',
     ...patch,
   };
 }

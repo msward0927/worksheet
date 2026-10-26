@@ -1,6 +1,6 @@
 // 연결선 모양 계산
 
-import type { Box, EdgeCurve } from './types';
+import type { Box, EdgeCurve, EdgeSide } from './types';
 
 export interface Pt {
   x: number;
@@ -24,7 +24,7 @@ export function borderPoint(b: Box, toward: Pt): Pt {
   return { x: c.x + dx * t, y: c.y + dy * t };
 }
 
-type Side = 'left' | 'right' | 'top' | 'bottom';
+type Side = Exclude<EdgeSide, 'auto'>;
 const NORMAL: Record<Side, Pt> = { left: { x: -1, y: 0 }, right: { x: 1, y: 0 }, top: { x: 0, y: -1 }, bottom: { x: 0, y: 1 } };
 
 function sidePoint(b: Box, side: Side): Pt {
@@ -73,10 +73,32 @@ function pickSides(a: Box, b: Box): [Side, Side] {
   return cb.y >= ca.y ? ['bottom', 'top'] : ['top', 'bottom'];
 }
 
-export function edgeGeometry(a: Box, b: Box, curve: EdgeCurve): EdgeGeometry {
+const isHorizontal = (side: Side) => side === 'left' || side === 'right';
+
+/** 꺾은선: 시작/끝 테두리 방향에 맞춰 직각으로 꺾어 잇는다 */
+function elbowPoints(start: Pt, sa: Side, end: Pt, sb: Side): Pt[] {
+  const ha = isHorizontal(sa);
+  const hb = isHorizontal(sb);
+  if (ha && hb) {
+    const mx = (start.x + end.x) / 2;
+    return [start, { x: mx, y: start.y }, { x: mx, y: end.y }, end];
+  }
+  if (!ha && !hb) {
+    const my = (start.y + end.y) / 2;
+    return [start, { x: start.x, y: my }, { x: end.x, y: my }, end];
+  }
+  // 한쪽은 가로, 한쪽은 세로로 나가면 한 번만 꺾는다
+  return ha ? [start, { x: end.x, y: start.y }, end] : [start, { x: start.x, y: end.y }, end];
+}
+
+/**
+ * 연결선 모양. fromSide / toSide 를 정하면 그 테두리의 가운데에 붙고,
+ * 'auto' 면 두 박스의 위치를 보고 알맞은 테두리를 고른다.
+ */
+export function edgeGeometry(a: Box, b: Box, curve: EdgeCurve, fromSide: EdgeSide = 'auto', toSide: EdgeSide = 'auto'): EdgeGeometry {
   if (curve === 'straight') {
-    const start = borderPoint(a, center(b));
-    const end = borderPoint(b, center(a));
+    const start = fromSide === 'auto' ? borderPoint(a, toSide === 'auto' ? center(b) : sidePoint(b, toSide)) : sidePoint(a, fromSide);
+    const end = toSide === 'auto' ? borderPoint(b, fromSide === 'auto' ? center(a) : sidePoint(a, fromSide)) : sidePoint(b, toSide);
     const dir = norm({ x: end.x - start.x, y: end.y - start.y });
     return {
       d: `M${start.x} ${start.y} L${end.x} ${end.y}`,
@@ -88,38 +110,36 @@ export function edgeGeometry(a: Box, b: Box, curve: EdgeCurve): EdgeGeometry {
     };
   }
 
-  const [sa, sb] = pickSides(a, b);
+  const [autoA, autoB] = pickSides(a, b);
+  const sa = fromSide === 'auto' ? autoA : fromSide;
+  const sb = toSide === 'auto' ? autoB : toSide;
   const start = sidePoint(a, sa);
   const end = sidePoint(b, sb);
-  const na = NORMAL[sa];
-  const nb = NORMAL[sb];
-  const horizontal = sa === 'left' || sa === 'right';
 
   if (curve === 'elbow') {
-    if (horizontal) {
-      const mx = (start.x + end.x) / 2;
-      return {
-        d: `M${start.x} ${start.y} H${mx} V${end.y} H${end.x}`,
-        start,
-        end,
-        endDir: { x: -nb.x, y: 0 },
-        startDir: { x: -na.x, y: 0 },
-        mid: { x: mx, y: (start.y + end.y) / 2 },
-      };
-    }
-    const my = (start.y + end.y) / 2;
+    const pts = elbowPoints(start, sa, end, sb);
+    const last = pts[pts.length - 2];
+    const second = pts[1];
+    const midIdx = Math.floor((pts.length - 1) / 2);
+    const m1 = pts[midIdx];
+    const m2 = pts[midIdx + 1];
     return {
-      d: `M${start.x} ${start.y} V${my} H${end.x} V${end.y}`,
+      d: `M${pts.map((p) => `${p.x} ${p.y}`).join(' L')}`,
       start,
       end,
-      endDir: { x: 0, y: -nb.y },
-      startDir: { x: 0, y: -na.y },
-      mid: { x: (start.x + end.x) / 2, y: my },
+      endDir: norm({ x: end.x - last.x, y: end.y - last.y }),
+      startDir: norm({ x: start.x - second.x, y: start.y - second.y }),
+      mid: { x: (m1.x + m2.x) / 2, y: (m1.y + m2.y) / 2 },
     };
   }
 
-  const dist = horizontal ? Math.abs(end.x - start.x) : Math.abs(end.y - start.y);
-  const k = Math.max(40, dist / 2);
+  const na = NORMAL[sa];
+  const nb = NORMAL[sb];
+  // 휘는 정도: 마주 보는 테두리끼리는 그 방향 거리의 절반만큼만 휘게 해서, 가까운 박스 사이에서 선이 바깥으로 크게 돌지 않게 한다
+  const ha = isHorizontal(sa);
+  const hb = isHorizontal(sb);
+  const along = ha && hb ? Math.abs(end.x - start.x) : !ha && !hb ? Math.abs(end.y - start.y) : Math.hypot(end.x - start.x, end.y - start.y) / 1.6;
+  const k = Math.min(240, Math.max(30, along / 2));
   const c1 = { x: start.x + na.x * k, y: start.y + na.y * k };
   const c2 = { x: end.x + nb.x * k, y: end.y + nb.y * k };
   return {
