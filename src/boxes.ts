@@ -1,5 +1,6 @@
 // 새 박스/연결선을 만들 때의 기본값과 색 팔레트
 
+import { normalizeOrder } from './tree';
 import type { Box, BoxKind, Doc, Edge, Tool } from './types';
 
 let counter = 0;
@@ -13,6 +14,7 @@ export const STROKES = ['#D6D1C6', '#3D4148', '#2F5BD3', '#A6531A', '#2F7A4B', '
 export const EDGE_COLORS = ['#3D4148', '#8A857A', '#2F5BD3', '#7A52C7', '#C2561B', '#2F7A4B', '#B23B3B'];
 
 export const KIND_LABEL: Record<BoxKind, string> = {
+  shape: '워크박스',
   text: 'Aa 텍스트',
   number: '123 숫자',
   formula: 'fx 수식',
@@ -21,7 +23,8 @@ export const KIND_LABEL: Record<BoxKind, string> = {
 };
 
 const DEFAULT_SIZE: Record<BoxKind, [number, number]> = {
-  text: [240, 120],
+  shape: [240, 168],
+  text: [200, 36],
   number: [200, 84],
   formula: [240, 112],
   checklist: [240, 168],
@@ -49,6 +52,8 @@ export function makeBox(kind: BoxKind, x: number, y: number, patch: Partial<Box>
     format: 'plain',
     fontSize: 14,
     bold: false,
+    align: 'left',
+    parentId: null,
     ...patch,
   };
 }
@@ -63,11 +68,11 @@ export function boxForTool(tool: Tool, x: number, y: number, existingNames: Set<
   };
   switch (tool) {
     case 'rect':
-      return makeBox('text', x, y, { shape: 'rounded' });
+      return makeBox('shape', x, y, { shape: 'rounded' });
     case 'ellipse':
-      return makeBox('text', x, y, { shape: 'ellipse', w: 180, h: 180 });
+      return makeBox('shape', x, y, { shape: 'ellipse', w: 180, h: 180 });
     case 'text':
-      return makeBox('text', x, y, { fill: 'transparent', stroke: 'none', w: 240, h: 48, fontSize: 18 });
+      return makeBox('text', x, y, { fill: 'transparent', stroke: 'none', fontSize: 16 });
     case 'sticky':
       return makeBox('text', x, y, { fill: '#FFF4C7', stroke: '#E8D88A', shape: 'rect', w: 220, h: 160 });
     case 'number':
@@ -110,6 +115,8 @@ export function cloneBoxes(boxes: Box[], edges: Edge[], allBoxes: Box[]): { boxe
     }
     return { ...b, id, name, items: b.items.map((i) => ({ ...i, id: uid() })) };
   });
+  // 함께 복제한 부모를 가리키도록 바꾼다 (부모가 복제되지 않았으면 원래 부모 그대로)
+  for (const c of clones) if (c.parentId && idMap.has(c.parentId)) c.parentId = idMap.get(c.parentId)!;
   const clonedEdges = edges
     .filter((e) => idMap.has(e.from) && idMap.has(e.to))
     .map((e) => ({ ...e, id: uid(), from: idMap.get(e.from)!, to: idMap.get(e.to)! }));
@@ -144,8 +151,21 @@ export function normalizeDoc(raw: unknown): Doc {
   }
   const boxes = r.boxes.map((b) => makeBox(b.kind ?? 'text', b.x ?? 0, b.y ?? 0, { ...b, items: Array.isArray(b.items) ? b.items : [] }));
   const ids = new Set(boxes.map((b) => b.id));
+  // 없는 부모나 순환하는 부모 관계는 끊는다
+  const byId = new Map(boxes.map((b) => [b.id, b]));
+  for (const b of boxes) {
+    if (b.parentId && !ids.has(b.parentId)) b.parentId = null;
+    const seen = new Set([b.id]);
+    for (let p = b.parentId; p; p = byId.get(p)?.parentId ?? null) {
+      if (seen.has(p)) {
+        b.parentId = null;
+        break;
+      }
+      seen.add(p);
+    }
+  }
   const edges = r.edges.filter((e) => ids.has(e.from) && ids.has(e.to)).map((e) => makeEdge(e.from, e.to, e));
   const v = r.view;
   const view = v && Number.isFinite(v.x) && Number.isFinite(v.y) && v.zoom > 0 ? v : { x: 0, y: 0, zoom: 1 };
-  return { app: 'worksheet', version: 1, title: typeof r.title === 'string' ? r.title : '제목 없음', boxes, edges, view };
+  return { app: 'worksheet', version: 1, title: typeof r.title === 'string' ? r.title : '제목 없음', boxes: normalizeOrder(boxes), edges, view };
 }

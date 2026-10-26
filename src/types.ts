@@ -1,6 +1,8 @@
 // 워크시트 문서의 데이터 구조. 파일(.wsht)에는 Doc 이 JSON 으로 그대로 저장된다.
 
-export type BoxKind = 'text' | 'number' | 'formula' | 'checklist' | 'image';
+/** shape: 글 없는 워크박스(다른 박스를 담는 틀), text: 텍스트 박스 */
+export type BoxKind = 'shape' | 'text' | 'number' | 'formula' | 'checklist' | 'image';
+export type TextAlign = 'left' | 'center';
 export type Shape = 'rect' | 'rounded' | 'ellipse' | 'diamond';
 export type NumberFormat = 'plain' | 'currency' | 'percent';
 
@@ -33,6 +35,9 @@ export interface Box {
   format: NumberFormat;
   fontSize: number;
   bold: boolean;
+  align: TextAlign;
+  /** 이 박스를 담고 있는 워크박스. 좌표는 부모와 상관없이 캔버스 기준이다 */
+  parentId: string | null;
 }
 
 export type ArrowMode = 'none' | 'end' | 'both';

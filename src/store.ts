@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { cloneBoxes, makeEdge } from './boxes';
 import { loadSnap, loadTheme, saveSnap, saveTheme, type Theme } from './theme';
+import { adopt, normalizeOrder, reparent, topLevel, translate, withDescendants } from './tree';
 import type { Box, Doc, Edge, Tool, View } from './types';
 
 const HISTORY_LIMIT = 200;
@@ -59,6 +60,10 @@ interface State {
   addBox(box: Box): void;
   updateBox(id: string, patch: Partial<Box>, key?: string): void;
   updateBoxes(ids: string[], patch: Partial<Box>): void;
+  /** 박스들을 자식과 함께 옮기고, 놓인 자리에 맞게 부모를 다시 정한다 */
+  moveBy(ids: string[], dx: number, dy: number, key?: string): void;
+  /** 내용 없이 편집을 마친 텍스트 박스를 기록 없이 지운다 */
+  discardIfEmpty(id: string): void;
   deleteSelected(): void;
   addEdge(from: string, to: string): void;
   updateEdge(id: string, patch: Partial<Edge>, key?: string): void;
@@ -178,7 +183,13 @@ export const useStore = create<State>((set, get) => ({
   },
 
   addBox(box) {
-    get().change((d) => ({ ...d, boxes: [...d.boxes, box] }));
+    get().change((d) => {
+      // 워크박스 안에 만들면 그 워크박스의 자식이 되고,
+      // 새 워크박스가 다른 박스들을 둘러싸면 그 박스들을 안으로 넣는다
+      let boxes = reparent([...d.boxes, box], [box.id]);
+      if (box.kind === 'shape') boxes = adopt(boxes, box.id);
+      return { ...d, boxes };
+    });
     set({ selected: [box.id], selectedEdge: null });
   },
   updateBox(id, patch, key) {
@@ -188,10 +199,25 @@ export const useStore = create<State>((set, get) => ({
     const set_ = new Set(ids);
     get().change((d) => ({ ...d, boxes: d.boxes.map((b) => (set_.has(b.id) ? { ...b, ...patch } : b)) }));
   },
+  moveBy(ids, dx, dy, key) {
+    get().change((d) => {
+      const moved = translate(d.boxes, ids, dx, dy);
+      return { ...d, boxes: reparent(moved, topLevel(moved, ids)) };
+    }, key);
+  },
+  discardIfEmpty(id) {
+    const box = get().doc.boxes.find((b) => b.id === id);
+    if (!box || box.kind !== 'text' || box.text.trim() || box.name.trim() || box.fill !== 'transparent' || box.stroke !== 'none') return;
+    set((s) => ({
+      doc: { ...s.doc, boxes: s.doc.boxes.filter((b) => b.id !== id), edges: s.doc.edges.filter((e) => e.from !== id && e.to !== id) },
+      selected: s.selected.filter((x) => x !== id),
+    }));
+  },
   deleteSelected() {
     const { selected, selectedEdge } = get();
     if (selected.length === 0 && !selectedEdge) return;
-    const ids = new Set(selected);
+    // 워크박스를 지우면 안에 든 박스도 함께 지운다
+    const ids = withDescendants(get().doc.boxes, selected);
     get().change((d) => ({
       ...d,
       boxes: d.boxes.filter((b) => !ids.has(b.id)),
@@ -220,7 +246,7 @@ export const useStore = create<State>((set, get) => ({
   copy() {
     const { doc, selected } = get();
     if (selected.length === 0) return;
-    const ids = new Set(selected);
+    const ids = withDescendants(doc.boxes, selected);
     set({
       clipboard: {
         boxes: doc.boxes.filter((b) => ids.has(b.id)),
@@ -238,9 +264,11 @@ export const useStore = create<State>((set, get) => ({
     const cloned = cloneBoxes(clip.boxes, clip.edges, get().doc.boxes);
     const boxes = cloned.boxes.map((b) => ({ ...b, x: b.x + dx, y: b.y + dy }));
     const edges = cloned.edges;
-    get().change((d) => ({ ...d, boxes: [...d.boxes, ...boxes], edges: [...d.edges, ...edges] }));
+    const pastedIds = new Set(boxes.map((b) => b.id));
+    const roots = boxes.filter((b) => !b.parentId || !pastedIds.has(b.parentId)).map((b) => b.id);
+    get().change((d) => ({ ...d, boxes: reparent([...d.boxes, ...boxes], roots), edges: [...d.edges, ...edges] }));
     // 다음 붙여넣기가 같은 자리에 겹치지 않도록 클립보드도 옮겨 둔다
-    set({ selected: boxes.map((b) => b.id), selectedEdge: null, clipboard: at ? clip : { boxes, edges } });
+    set({ selected: roots, selectedEdge: null, clipboard: at ? clip : { boxes, edges } });
   },
   duplicate() {
     const prev = get().clipboard;
@@ -250,11 +278,11 @@ export const useStore = create<State>((set, get) => ({
   },
   bringToFront() {
     const ids = new Set(get().selected);
-    get().change((d) => ({ ...d, boxes: [...d.boxes.filter((b) => !ids.has(b.id)), ...d.boxes.filter((b) => ids.has(b.id))] }));
+    get().change((d) => ({ ...d, boxes: normalizeOrder([...d.boxes.filter((b) => !ids.has(b.id)), ...d.boxes.filter((b) => ids.has(b.id))]) }));
   },
   sendToBack() {
     const ids = new Set(get().selected);
-    get().change((d) => ({ ...d, boxes: [...d.boxes.filter((b) => ids.has(b.id)), ...d.boxes.filter((b) => !ids.has(b.id))] }));
+    get().change((d) => ({ ...d, boxes: normalizeOrder([...d.boxes.filter((b) => ids.has(b.id)), ...d.boxes.filter((b) => !ids.has(b.id))]) }));
   },
   align(mode) {
     const ids = new Set(get().selected);
@@ -280,7 +308,14 @@ export const useStore = create<State>((set, get) => ({
           return { y: (top + bottom) / 2 - b.h / 2 };
       }
     };
-    get().change((d) => ({ ...d, boxes: d.boxes.map((b) => (ids.has(b.id) ? { ...b, ...pos(b) } : b)) }));
+    get().change((d) => {
+      let next = d.boxes;
+      for (const b of boxes) {
+        const p = pos(b);
+        next = translate(next, [b.id], (p.x ?? b.x) - b.x, (p.y ?? b.y) - b.y);
+      }
+      return { ...d, boxes: reparent(next, topLevel(next, ids)) };
+    });
   },
 
   undo() {

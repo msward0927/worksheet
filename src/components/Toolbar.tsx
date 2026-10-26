@@ -9,7 +9,7 @@ export const TOOLS: { tool: Tool; label: string; key: string; icon: () => JSX.El
   { tool: 'hand', label: '화면 이동', key: 'H', icon: Icon.hand },
   { tool: 'rect', label: '사각형 워크박스', key: 'R', icon: Icon.rect },
   { tool: 'ellipse', label: '원형 워크박스', key: 'O', icon: Icon.ellipse },
-  { tool: 'text', label: '글상자', key: 'T', icon: Icon.text },
+  { tool: 'text', label: '텍스트 박스', key: 'T', icon: Icon.text },
   { tool: 'sticky', label: '메모지', key: 'S', icon: Icon.sticky },
   { tool: 'number', label: '숫자 박스', key: 'N', icon: Icon.number },
   { tool: 'formula', label: '수식 박스', key: 'F', icon: () => <span className="fx">fx</span> },

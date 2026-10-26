@@ -1,12 +1,13 @@
 // 점 모눈종이 무한 캔버스. 화면 이동/확대, 박스 만들기/옮기기/크기 조절, 연결선 긋기를 처리한다.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { boxForTool, cloneBoxes, makeBox } from '../boxes';
 import { openContent } from '../fileOps';
 import { intersects, type Pt, type Rect } from '../geometry';
+import { edgeLayer, findContainer, parentIds, reparent, topLevel, withDescendants } from '../tree';
 import { platform, readImageFile } from '../platform';
 import { useStore } from '../store';
-import type { Box, Tool } from '../types';
+import type { Box, Edge, Tool } from '../types';
 import { useResults } from '../useResults';
 import { dotBackground, dotSpacing, registerViewport, snap, snapTo, viewCenter, zoomAt } from '../viewport';
 import { BoxView } from './BoxView';
@@ -25,9 +26,11 @@ type Drag =
 type Overlay = { kind: 'rect'; r: Rect; marquee: boolean } | { kind: 'line'; from: Pt; to: Pt };
 
 const CREATE_TOOLS: Tool[] = ['rect', 'ellipse', 'text', 'sticky', 'number', 'formula', 'checklist', 'image'];
-const MIN_W = 40;
-const MIN_H = 28;
+// 크기 제한은 사실상 없다 (손잡이로 잡을 수 있을 만큼만 남긴다)
+const MIN_W = 4;
+const MIN_H = 4;
 export const CLIP_MARKER = 'worksheet-boxes:';
+const NO_EDGES: Edge[] = [];
 
 const rectFrom = (a: Pt, b: Pt): Rect => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) });
 
@@ -77,6 +80,7 @@ export function Canvas() {
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [panning, setPanning] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   const { view } = doc;
 
@@ -210,7 +214,7 @@ export function Canvas() {
     }
     s.addBox(box);
     s.setTool('select');
-    if (box.kind !== 'image') s.setEditing(box.id);
+    if (box.kind !== 'image' && box.kind !== 'shape') s.setEditing(box.id);
   };
 
   /** Alt 를 누르고 끌기 시작하면 선택한 박스를 복제하고, 복제본을 끌고 간다 */
@@ -222,7 +226,7 @@ export function Canvas() {
     d.origins = new Map(boxes.map((b) => [b.id, { x: b.x, y: b.y }]));
     d.primary = idMap.get(d.primary) ?? d.primary;
     d.clickedId = d.primary;
-    s.select(boxes.map((b) => b.id));
+    s.select(topLevel(s.doc.boxes, s.selected).map((id) => idMap.get(id)!).filter(Boolean));
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -272,8 +276,10 @@ export function Canvas() {
       } else if (s.selectedEdge) {
         s.select(sel);
       }
+      // 워크박스를 옮기면 안에 든 박스도 함께 옮긴다
+      const moving = withDescendants(s.doc.boxes, topLevel(s.doc.boxes, sel));
       const origins = new Map<string, Pt>();
-      for (const b of s.doc.boxes) if (sel.includes(b.id)) origins.set(b.id, { x: b.x, y: b.y });
+      for (const b of s.doc.boxes) if (moving.has(b.id)) origins.set(b.id, { x: b.x, y: b.y });
       drag.current = { kind: 'move', start: p, origins, primary: boxId, moved: false, clickedId: boxId, toggle };
     } else if (edgeEl) {
       s.select([], (edgeEl as HTMLElement | SVGElement).dataset.edgeId ?? null);
@@ -324,6 +330,10 @@ export function Canvas() {
             return org ? { ...b, x: org.x + dx, y: org.y + dy } : b;
           }),
         }));
+        // 놓으면 들어갈 워크박스를 표시한다
+        const moved = useStore.getState().doc.boxes;
+        const primary = moved.find((b) => b.id === d.primary);
+        setDropTarget(primary ? (findContainer(moved, primary)?.id ?? null) : null);
         return;
       }
       case 'resize': {
@@ -379,13 +389,19 @@ export function Canvas() {
     drag.current = null;
     setOverlay(null);
     setPanning(false);
+    setDropTarget(null);
     if (!d) return;
     const s = useStore.getState();
     switch (d.kind) {
       case 'pan':
         return;
       case 'move':
-        if (!d.moved && !d.toggle && s.selected.length > 1) s.select([d.clickedId]);
+        if (!d.moved) {
+          if (!d.toggle && s.selected.length > 1) s.select([d.clickedId]);
+          return;
+        }
+        // 놓은 자리에 맞게 워크박스 안으로 넣거나 밖으로 뺀다 (옮기기와 같은 실행 취소 단계)
+        s.changeSilently((doc) => ({ ...doc, boxes: reparent(doc.boxes, topLevel(doc.boxes, s.selected)) }));
         return;
       case 'create':
         void finishCreate(d.tool, d.start, d.cur, s.snap || d.snapKey || e.shiftKey);
@@ -411,9 +427,21 @@ export function Canvas() {
     const target = (document.elementFromPoint(e.clientX, e.clientY) ?? e.target) as HTMLElement;
     if (target.closest('input, textarea, [data-no-drag]')) return;
     const boxId = target.closest<HTMLElement>('[data-box-id]')?.dataset.boxId;
+    const p = toWorld(e.clientX, e.clientY);
+    const snapOn = s.snap || e.shiftKey;
+    const newText = () => {
+      const box = boxForTool('text', snapOn ? snap(p.x) : p.x, snapOn ? snap(p.y - 18) : p.y - 18, new Set());
+      if (box) {
+        s.addBox(box);
+        s.setEditing(box.id);
+      }
+    };
     if (boxId) {
       const box = s.doc.boxes.find((b) => b.id === boxId)!;
-      if (box.kind === 'image') {
+      if (box.kind === 'shape') {
+        // 워크박스에는 글을 직접 쓰지 않고, 안에 텍스트 박스를 만든다
+        newText();
+      } else if (box.kind === 'image') {
         const data = await platform.openImage();
         if (data) s.updateBox(box.id, { image: data });
       } else {
@@ -423,14 +451,8 @@ export function Canvas() {
       return;
     }
     if (target.closest('[data-edge-id]') || s.tool !== 'select') return;
-    // 빈 곳을 더블클릭하면 글상자를 만든다
-    const p = toWorld(e.clientX, e.clientY);
-    const snapOn = s.snap || e.shiftKey;
-    const box = boxForTool('text', snapOn ? snap(p.x) : p.x, snapOn ? snap(p.y - 24) : p.y - 24, new Set());
-    if (box) {
-      s.addBox(box);
-      s.setEditing(box.id);
-    }
+    // 빈 곳을 더블클릭하면 텍스트 박스를 만든다
+    newText();
   };
 
   const onDrop = async (e: React.DragEvent) => {
@@ -454,11 +476,22 @@ export function Canvas() {
     }
   };
 
-  // 줌에 맞춰 점 간격을 2배씩 바꿔서 항상 적당한 밀도로 보이게 한다
-
   const cursor = panning ? 'grabbing' : tool === 'hand' || spaceDown ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
   const single = selected.length === 1;
   const selectedSet = new Set(selected);
+  const parents = parentIds(doc.boxes);
+  // 연결선은 양 끝을 품은 워크박스 바로 위(그 안의 박스들보다는 아래)에 그린다
+  const edgeGroups = useMemo(() => {
+    const byId = new Map(doc.boxes.map((b) => [b.id, b]));
+    const groups = new Map<string | null, Edge[]>();
+    for (const e of doc.edges) {
+      const key = edgeLayer(byId, e.from, e.to);
+      const list = groups.get(key) ?? [];
+      list.push(e);
+      groups.set(key, list);
+    }
+    return groups;
+  }, [doc.boxes, doc.edges]);
 
   return (
     <div
@@ -478,17 +511,21 @@ export function Canvas() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="world" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-        <EdgeLines edges={doc.edges} boxes={doc.boxes} selectedEdge={selectedEdge} zoom={view.zoom} />
+        <EdgeLines edges={edgeGroups.get(null) ?? NO_EDGES} boxes={doc.boxes} selectedEdge={selectedEdge} zoom={view.zoom} />
         {doc.boxes.map((b) => (
-          <BoxView
-            key={b.id}
-            box={b}
-            selected={selectedSet.has(b.id)}
-            single={single}
-            editing={editingId === b.id}
-            result={results.get(b.id)}
-            zoom={view.zoom}
-          />
+          <Fragment key={b.id}>
+            <BoxView
+              box={b}
+              selected={selectedSet.has(b.id)}
+              single={single}
+              editing={editingId === b.id}
+              result={results.get(b.id)}
+              zoom={view.zoom}
+              hasChildren={parents.has(b.id)}
+              dropTarget={dropTarget === b.id}
+            />
+            {edgeGroups.has(b.id) && <EdgeLines edges={edgeGroups.get(b.id)!} boxes={doc.boxes} selectedEdge={selectedEdge} zoom={view.zoom} />}
+          </Fragment>
         ))}
         <EdgeLabels edges={doc.edges} boxes={doc.boxes} selectedEdge={selectedEdge} zoom={view.zoom} />
         {overlay && (
@@ -517,15 +554,6 @@ export function Canvas() {
           </svg>
         )}
       </div>
-      {doc.boxes.length === 0 && (
-        <div className="empty-hint">
-          왼쪽 도구로 워크박스를 만들거나, 빈 곳을 더블클릭해 글을 써 보세요.
-          <br />
-          휠: 확대/축소 · Space+끌기: 화면 이동 · 빈 곳 끌기: 영역 선택
-          <br />
-          Shift+끌기: 점에 맞추기 · Alt+끌기: 복사 · Ctrl+클릭: 선택 추가
-        </div>
-      )}
     </div>
   );
 }

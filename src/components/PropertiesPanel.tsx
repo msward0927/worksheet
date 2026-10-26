@@ -146,7 +146,9 @@ function BoxPanel({ box }: { box: Box }) {
     <>
       <div className="panel-head">
         <div className="eyebrow">{KIND_LABEL[box.kind]} 박스</div>
-        <div className="panel-name">{box.name || (box.kind === 'text' ? box.text.split('\n')[0].slice(0, 24) || '글상자' : '이름 없음')}</div>
+        <div className="panel-name">
+          {box.name || (box.kind === 'text' ? box.text.split('\n')[0].slice(0, 24) || '텍스트 박스' : box.kind === 'shape' ? '워크박스' : '이름 없음')}
+        </div>
       </div>
 
       <Section title="형식">
@@ -155,6 +157,7 @@ function BoxPanel({ box }: { box: Box }) {
           value={box.kind}
           onChange={(k) => k !== box.kind && update(convertKind(box, k, result))}
           options={[
+            { v: 'shape', label: '워크박스' },
             { v: 'text', label: 'Aa 텍스트' },
             { v: 'number', label: '123 숫자' },
             { v: 'formula', label: 'fx 수식' },
@@ -164,18 +167,26 @@ function BoxPanel({ box }: { box: Box }) {
         />
       </Section>
 
-      <label className="field">
-        <span className="section-title">
-          이름{box.kind !== 'text' && box.kind !== 'image' && <span className="hint"> · 수식에서 부를 때 사용</span>}
-        </span>
-        <input
-          className={box.kind === 'text' ? '' : 'mono'}
-          value={box.name}
-          placeholder={box.kind === 'text' ? '제목 (선택)' : '예: 식비'}
-          onChange={(e) => update({ name: e.target.value }, `${box.id}:name`)}
-        />
-        {duplicateName && <span className="warn">같은 이름의 박스가 또 있어요. 수식에서 부를 수 없어요.</span>}
-      </label>
+      {(box.kind === 'number' || box.kind === 'formula' || box.kind === 'checklist' || box.name.trim() !== '') && (
+        <label className="field">
+          <span className="section-title">
+            이름{box.kind !== 'text' && box.kind !== 'image' && <span className="hint"> · 수식에서 부를 때 사용</span>}
+          </span>
+          <input
+            className={box.kind === 'text' ? '' : 'mono'}
+            value={box.name}
+            placeholder="예: 식비"
+            onChange={(e) => update({ name: e.target.value }, `${box.id}:name`)}
+          />
+          {duplicateName && <span className="warn">같은 이름의 박스가 또 있어요. 수식에서 부를 수 없어요.</span>}
+        </label>
+      )}
+
+      {box.kind === 'shape' && (
+        <div className="muted small">
+          워크박스에는 글을 직접 쓰지 않아요. 더블클릭하면 안에 텍스트 박스가 생기고, 다른 박스를 끌어다 넣을 수도 있어요. 안에 박스가 있으면 점 모눈이 보여요.
+        </div>
+      )}
 
       {box.kind === 'text' && <TextFields box={box} update={update} />}
       {box.kind === 'number' && <NumberFields box={box} update={update} />}
@@ -202,7 +213,11 @@ function BoxPanel({ box }: { box: Box }) {
                 value={Math.round(box[k])}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  if (Number.isFinite(v)) update({ [k]: k === 'w' || k === 'h' ? Math.max(28, v) : v }, `${box.id}:${k}`);
+                  if (!Number.isFinite(v)) return;
+                  // 위치를 바꾸면 안에 든 박스도 함께 옮긴다
+                  if (k === 'x') useStore.getState().moveBy([box.id], v - box.x, 0, `${box.id}:x`);
+                  else if (k === 'y') useStore.getState().moveBy([box.id], 0, v - box.y, `${box.id}:y`);
+                  else update({ [k]: Math.max(1, v) }, `${box.id}:${k}`);
                 }}
               />
             </label>
@@ -234,6 +249,12 @@ function TextFields({ box, update }: { box: Box; update: Upd }) {
           </select>
           <button className={`chip${box.bold ? ' on' : ''}`} onClick={() => update({ bold: !box.bold })} aria-pressed={box.bold}>
             <b>굵게</b>
+          </button>
+          <button className={`chip${box.align === 'left' ? ' on' : ''}`} onClick={() => update({ align: 'left' })} aria-pressed={box.align === 'left'}>
+            왼쪽
+          </button>
+          <button className={`chip${box.align === 'center' ? ' on' : ''}`} onClick={() => update({ align: 'center' })} aria-pressed={box.align === 'center'}>
+            가운데
           </button>
         </div>
       </Section>

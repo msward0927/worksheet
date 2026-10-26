@@ -90,14 +90,7 @@ function useKeyboard() {
         const step = e.shiftKey ? BASE_DOT : 1;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-        const ids = new Set(s.selected);
-        s.change(
-          (d) => ({
-            ...d,
-            boxes: d.boxes.map((b) => (ids.has(b.id) ? { ...b, x: b.x + dx, y: b.y + dy } : b)),
-          }),
-          'nudge',
-        );
+        s.moveBy(s.selected, dx, dy, 'nudge');
         return;
       }
       if (e.altKey || e.repeat) return;

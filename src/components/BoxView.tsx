@@ -14,11 +14,15 @@ interface Props {
   editing: boolean;
   result: BoxResult | undefined;
   zoom: number;
+  /** 안에 다른 박스가 들어 있으면 점 모눈을 그린다 */
+  hasChildren: boolean;
+  /** 지금 끌고 있는 박스가 이 워크박스 안으로 들어갈 예정 */
+  dropTarget: boolean;
 }
 
 const RADIUS: Record<Box['shape'], string> = { rect: '3px', rounded: '12px', ellipse: '50%', diamond: '0' };
 
-function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
+function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren, dropTarget }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
   const theme = useStore((s) => s.theme);
   const fill = themed(box.fill, theme);
@@ -27,11 +31,11 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
   const isEllipse = box.shape === 'ellipse';
   const hasStroke = box.stroke !== 'none';
 
-  // 편집 중이거나 선택된 박스는 내용이 넘치면 높이를 늘린다.
+  // 글을 입력하는 동안에만 내용이 넘치면 높이를 늘린다 (그 밖에는 크기를 마음대로 줄일 수 있다).
   // box-inner 는 min-height: 100% 라서, 내용이 넘칠 때만 박스보다 커진다.
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el || !(editing || selected) || box.kind === 'image') return;
+    if (!el || !editing || box.kind === 'image' || box.kind === 'shape') return;
     const border = box.stroke !== 'none' && box.shape !== 'diamond' ? 3 : 0;
     const needed = el.offsetHeight + border;
     if (needed > box.h + 1) {
@@ -42,26 +46,46 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
     }
   });
 
-  const pad = isEllipse ? `${Math.round(box.h * 0.16)}px ${Math.round(box.w * 0.16)}px` : isDiamond ? `${Math.round(box.h * 0.22)}px ${Math.round(box.w * 0.24)}px` : '12px 14px';
+  const bare = box.kind === 'text' && box.fill === 'transparent' && !hasStroke;
+  const pad = isEllipse
+    ? `${Math.round(box.h * 0.16)}px ${Math.round(box.w * 0.16)}px`
+    : isDiamond
+      ? `${Math.round(box.h * 0.22)}px ${Math.round(box.w * 0.24)}px`
+      : box.kind === 'image'
+        ? '8px'
+        : bare
+          ? '4px 2px'
+          : '12px 14px';
 
-  const showHeader = box.kind !== 'image' && (box.name.trim() !== '' || box.kind !== 'text');
-  const centered = isEllipse || isDiamond;
+  const showHeader = box.kind !== 'image' && box.kind !== 'shape' && (box.name.trim() !== '' || box.kind !== 'text');
+  const centered = isEllipse || isDiamond || box.align === 'center';
   const handle = 9 / zoom;
+  // 점 모눈은 캔버스의 점과 같은 자리(24px 격자)에 오도록 맞춘다
+  const dots =
+    box.kind === 'shape' && hasChildren
+      ? {
+          backgroundImage: `radial-gradient(circle, var(--dot) 1.15px, transparent 1.65px)`,
+          backgroundSize: '24px 24px',
+          backgroundPosition: `${-box.x - 12}px ${-box.y - 12}px`,
+          backgroundOrigin: 'border-box' as const,
+        }
+      : null;
 
   return (
     <div
       data-box-id={box.id}
-      className={`box kind-${box.kind}${selected ? ' selected' : ''}${editing ? ' editing' : ''}`}
+      className={`box kind-${box.kind}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${dropTarget ? ' drop-target' : ''}`}
       style={{
         left: box.x,
         top: box.y,
         width: box.w,
         height: box.h,
-        background: isDiamond ? 'transparent' : fill,
+        backgroundColor: isDiamond ? 'transparent' : fill,
+        ...(isDiamond ? null : dots),
         border: isDiamond || !hasStroke ? 'none' : `1.5px solid ${stroke}`,
         borderRadius: RADIUS[box.shape],
         boxShadow: box.fill === 'transparent' || isDiamond ? 'none' : undefined,
-        outlineWidth: selected ? 2 / zoom : 0,
+        outlineWidth: selected || dropTarget ? 2 / zoom : 0,
         outlineOffset: (hasStroke ? 1 : 3) / zoom,
         overflow: isDiamond ? 'visible' : 'hidden',
       }}
@@ -77,10 +101,13 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
           />
         </svg>
       )}
-      <div ref={innerRef} className={`box-inner${centered ? ' centered' : ''}`} style={{ padding: box.kind === 'image' ? 8 : pad }}>
-        {showHeader && <Header box={box} centered={centered} />}
-        <Content box={box} editing={editing} result={result} />
-      </div>
+      {isDiamond && dots && <div className="diamond-dots" style={dots} aria-hidden="true" />}
+      {box.kind !== 'shape' && (
+        <div ref={innerRef} className={`box-inner${centered ? ' centered' : ''}`} style={{ padding: pad }}>
+          {showHeader && <Header box={box} centered={centered} />}
+          <Content box={box} editing={editing} result={result} />
+        </div>
+      )}
 
       {selected && single && !editing && (
         <>
@@ -143,16 +170,26 @@ function Content({ box, editing, result }: { box: Box; editing: boolean; result:
       return box.image ? (
         <img className="box-image" src={box.image} alt={box.name || '이미지'} draggable={false} />
       ) : (
-        <div className="image-placeholder">
-          더블클릭해서 이미지 고르기
-          <br />
-          또는 파일을 끌어다 놓기
+        <div className="image-placeholder" title="더블클릭해서 이미지 고르기 · 파일을 끌어다 놓기">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <circle cx="9" cy="10" r="1.5" />
+            <path d="M21 16l-5-5-8 8" />
+          </svg>
         </div>
       );
+    case 'shape':
+      return null;
   }
 }
 
-const stopEditing = () => useStore.getState().setEditing(null);
+const stopEditing = () => {
+  const s = useStore.getState();
+  const id = s.editingId;
+  s.setEditing(null);
+  // 아무것도 쓰지 않은 텍스트 박스는 남기지 않는다
+  if (id) s.discardIfEmpty(id);
+};
 
 function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -172,14 +209,13 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
 }
 
 function TextContent({ box, editing }: { box: Box; editing: boolean }) {
-  const style = { fontSize: box.fontSize, fontWeight: box.bold ? 700 : 400 };
+  const style = { fontSize: box.fontSize, fontWeight: box.bold ? 700 : 400, textAlign: box.align };
   if (editing) {
     return (
       <AutoTextarea
         className="box-textarea"
         style={style}
         value={box.text}
-        placeholder="내용을 입력하세요"
         onChange={(e) => useStore.getState().updateBox(box.id, { text: e.target.value }, `${box.id}:text`)}
         onKeyDown={(e) => {
           if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
@@ -192,8 +228,8 @@ function TextContent({ box, editing }: { box: Box; editing: boolean }) {
     );
   }
   return (
-    <div className={`box-text${box.text ? '' : ' empty'}`} style={style}>
-      {box.text || '더블클릭해서 입력'}
+    <div className="box-text" style={style}>
+      {box.text}
     </div>
   );
 }
@@ -228,7 +264,7 @@ function NumberContent({ box, editing }: { box: Box; editing: boolean }) {
       />
     );
   }
-  return <div className="box-value">{box.value === null ? <span className="muted">비어 있음</span> : formatNumber(box.value, box.format)}</div>;
+  return <div className="box-value">{box.value === null ? <span className="muted">—</span> : formatNumber(box.value, box.format)}</div>;
 }
 
 function FormulaContent({ box, editing, result }: { box: Box; editing: boolean; result: BoxResult | undefined }) {
@@ -250,7 +286,7 @@ function FormulaContent({ box, editing, result }: { box: Box; editing: boolean; 
           onBlur={stopEditing}
         />
       ) : (
-        <div className="formula-text mono">{box.formula.trim() || '= (수식 없음)'}</div>
+        <div className="formula-text mono">{box.formula.trim() || '='}</div>
       )}
       {result?.error !== undefined ? (
         <div className="formula-error">{result.error}</div>
@@ -321,11 +357,10 @@ function ChecklistContent({ box, editing }: { box: Box; editing: boolean }) {
               }}
             />
           ) : (
-            <span className="check-text">{item.text || <span className="muted">할 일</span>}</span>
+            <span className="check-text">{item.text}</span>
           )}
         </label>
       ))}
-      {box.items.length === 0 && <div className="muted">더블클릭해서 항목 추가</div>}
     </div>
   );
 }
