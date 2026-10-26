@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { cloneBoxes, makeEdge } from './boxes';
+import { loadTheme, saveTheme, type Theme } from './theme';
 import type { Box, Doc, Edge, Tool, View } from './types';
 
 const HISTORY_LIMIT = 200;
@@ -24,6 +25,7 @@ interface State {
   selectedEdge: string | null;
   editingId: string | null;
   snap: boolean;
+  theme: Theme;
   past: Doc[];
   future: Doc[];
   clipboard: Clipboard | null;
@@ -36,6 +38,7 @@ interface State {
   setView(view: View): void;
   setTool(tool: Tool): void;
   setSnap(snap: boolean): void;
+  setTheme(theme: Theme): void;
   setEditing(id: string | null): void;
   select(ids: string[], edge?: string | null): void;
   showToast(msg: string): void;
@@ -81,6 +84,7 @@ export const useStore = create<State>((set, get) => ({
   selectedEdge: null,
   editingId: null,
   snap: false,
+  theme: loadTheme(),
   past: [],
   future: [],
   clipboard: null,
@@ -118,6 +122,10 @@ export const useStore = create<State>((set, get) => ({
   },
   setSnap(snap) {
     set({ snap });
+  },
+  setTheme(theme) {
+    saveTheme(theme);
+    set({ theme });
   },
   setEditing(id) {
     lastKey = undefined;

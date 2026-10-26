@@ -4,6 +4,7 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { KIND_LABEL, uid } from '../boxes';
 import { formatNumber, parseNumberInput, type BoxResult } from '../formula';
 import { useStore } from '../store';
+import { themed } from '../theme';
 import type { Box, CheckItem } from '../types';
 
 interface Props {
@@ -19,6 +20,9 @@ const RADIUS: Record<Box['shape'], string> = { rect: '3px', rounded: '12px', ell
 
 function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
+  const theme = useStore((s) => s.theme);
+  const fill = themed(box.fill, theme);
+  const stroke = themed(box.stroke, theme);
   const isDiamond = box.shape === 'diamond';
   const isEllipse = box.shape === 'ellipse';
   const hasStroke = box.stroke !== 'none';
@@ -53,8 +57,8 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
         top: box.y,
         width: box.w,
         height: box.h,
-        background: isDiamond ? 'transparent' : box.fill,
-        border: isDiamond || !hasStroke ? 'none' : `1.5px solid ${box.stroke}`,
+        background: isDiamond ? 'transparent' : fill,
+        border: isDiamond || !hasStroke ? 'none' : `1.5px solid ${stroke}`,
         borderRadius: RADIUS[box.shape],
         boxShadow: box.fill === 'transparent' || isDiamond ? 'none' : undefined,
         outlineWidth: selected ? 2 / zoom : 0,
@@ -66,8 +70,8 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom }: Props) {
         <svg className="diamond-bg" viewBox={`0 0 ${box.w} ${box.h}`} preserveAspectRatio="none" aria-hidden="true">
           <polygon
             points={`${box.w / 2},1 ${box.w - 1},${box.h / 2} ${box.w / 2},${box.h - 1} 1,${box.h / 2}`}
-            fill={box.fill}
-            stroke={hasStroke ? box.stroke : 'none'}
+            fill={fill}
+            stroke={hasStroke ? stroke : 'none'}
             strokeWidth={1.5}
             vectorEffect="non-scaling-stroke"
           />

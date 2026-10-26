@@ -15,10 +15,10 @@ import { EdgeLabels, EdgeLines } from './EdgeLayer';
 type Corner = 'nw' | 'ne' | 'sw' | 'se';
 
 type Drag =
-  | { kind: 'pan'; sx: number; sy: number; vx: number; vy: number; moved: boolean; clearOnClick: boolean }
-  | { kind: 'move'; start: Pt; origins: Map<string, Pt>; primary: string; moved: boolean; clickedId: string; shift: boolean }
+  | { kind: 'pan'; sx: number; sy: number; vx: number; vy: number; moved: boolean }
+  | { kind: 'move'; start: Pt; origins: Map<string, Pt>; primary: string; moved: boolean; clickedId: string; toggle: boolean }
   | { kind: 'resize'; id: string; corner: Corner; start: Pt; orig: Rect; moved: boolean }
-  | { kind: 'create'; tool: Tool; start: Pt; cur: Pt; ctrl: boolean }
+  | { kind: 'create'; tool: Tool; start: Pt; cur: Pt; snapKey: boolean }
   | { kind: 'connect'; from: string; cur: Pt }
   | { kind: 'marquee'; start: Pt; cur: Pt; base: string[] };
 
@@ -86,7 +86,7 @@ export function Canvas() {
     return { x: (clientX - r.left - v.x) / v.zoom, y: (clientY - r.top - v.y) / v.zoom };
   }, []);
 
-  // 휠: 확대/축소 (Shift+휠: 가로 이동)
+  // 휠: 확대/축소
   useEffect(() => {
     const el = vpRef.current!;
     registerViewport(el);
@@ -97,11 +97,6 @@ export function Canvas() {
       }
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      const v = useStore.getState().doc.view;
-      if (e.shiftKey) {
-        useStore.getState().setView({ ...v, x: v.x - (e.deltaY || e.deltaX) });
-        return;
-      }
       const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
       zoomAt(e.clientX - r.left, e.clientY - r.top, factor);
     };
@@ -237,7 +232,7 @@ export function Canvas() {
 
     if (e.button === 1 || (e.button === 0 && (s.tool === 'hand' || spaceDown))) {
       e.preventDefault();
-      drag.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: s.doc.view.x, vy: s.doc.view.y, moved: false, clearOnClick: false };
+      drag.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: s.doc.view.x, vy: s.doc.view.y, moved: false };
       setPanning(true);
       vpRef.current!.setPointerCapture(e.pointerId);
       return;
@@ -259,14 +254,15 @@ export function Canvas() {
     } else if (connectEl && boxId) {
       drag.current = { kind: 'connect', from: boxId, cur: p };
     } else if (CREATE_TOOLS.includes(s.tool)) {
-      drag.current = { kind: 'create', tool: s.tool, start: p, cur: p, ctrl: e.ctrlKey || e.metaKey };
+      drag.current = { kind: 'create', tool: s.tool, start: p, cur: p, snapKey: e.shiftKey };
     } else if (s.tool === 'connect') {
       if (!boxId) return;
       drag.current = { kind: 'connect', from: boxId, cur: p };
     } else if (boxId) {
       if (s.editingId === boxId) return;
       let sel = s.selected;
-      if (e.shiftKey) {
+      const toggle = e.ctrlKey || e.metaKey;
+      if (toggle) {
         sel = sel.includes(boxId) ? sel.filter((id) => id !== boxId) : [...sel, boxId];
         s.select(sel);
         if (!sel.includes(boxId)) return;
@@ -278,14 +274,13 @@ export function Canvas() {
       }
       const origins = new Map<string, Pt>();
       for (const b of s.doc.boxes) if (sel.includes(b.id)) origins.set(b.id, { x: b.x, y: b.y });
-      drag.current = { kind: 'move', start: p, origins, primary: boxId, moved: false, clickedId: boxId, shift: e.shiftKey };
+      drag.current = { kind: 'move', start: p, origins, primary: boxId, moved: false, clickedId: boxId, toggle };
     } else if (edgeEl) {
       s.select([], (edgeEl as HTMLElement | SVGElement).dataset.edgeId ?? null);
       return;
-    } else if (e.shiftKey) {
-      drag.current = { kind: 'marquee', start: p, cur: p, base: s.selected };
     } else {
-      drag.current = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: s.doc.view.x, vy: s.doc.view.y, moved: false, clearOnClick: true };
+      // 빈 곳 끌기는 영역 선택 (Ctrl 을 누르면 기존 선택에 더한다). 화면 이동은 Space+끌기
+      drag.current = { kind: 'marquee', start: p, cur: p, base: e.ctrlKey || e.metaKey ? s.selected : [] };
     }
     vpRef.current!.setPointerCapture(e.pointerId);
   };
@@ -295,8 +290,8 @@ export function Canvas() {
     if (!d) return;
     const s = useStore.getState();
     const p = toWorld(e.clientX, e.clientY);
-    // Ctrl 을 누르고 있거나 '항상 점에 맞추기'가 켜져 있으면 점에 맞춘다
-    const useSnap = s.snap || e.ctrlKey || e.metaKey;
+    // Shift 를 누르고 있거나 '항상 점에 맞추기'가 켜져 있으면 점에 맞춘다
+    const useSnap = s.snap || e.shiftKey;
     switch (d.kind) {
       case 'pan': {
         const dx = e.clientX - d.sx;
@@ -345,7 +340,7 @@ export function Canvas() {
         if (corner.includes('e')) right = Math.max(sx, left + MIN_W);
         if (corner.includes('n')) top = Math.min(sy, bottom - MIN_H);
         if (corner.includes('s')) bottom = Math.max(sy, top + MIN_H);
-        if (e.shiftKey) {
+        if (e.altKey) {
           // 비율 유지
           const ratio = orig.w / orig.h;
           const w = right - left;
@@ -361,8 +356,8 @@ export function Canvas() {
       }
       case 'create': {
         d.cur = p;
-        d.ctrl = e.ctrlKey || e.metaKey;
-        const r = createRect(d.start, p, s.snap || d.ctrl);
+        d.snapKey = e.shiftKey;
+        const r = createRect(d.start, p, s.snap || d.snapKey);
         setOverlay({ kind: 'rect', r, marquee: false });
         return;
       }
@@ -388,13 +383,12 @@ export function Canvas() {
     const s = useStore.getState();
     switch (d.kind) {
       case 'pan':
-        if (!d.moved && d.clearOnClick) s.select([]);
         return;
       case 'move':
-        if (!d.moved && !d.shift && s.selected.length > 1) s.select([d.clickedId]);
+        if (!d.moved && !d.toggle && s.selected.length > 1) s.select([d.clickedId]);
         return;
       case 'create':
-        void finishCreate(d.tool, d.start, d.cur, s.snap || d.ctrl || e.ctrlKey || e.metaKey);
+        void finishCreate(d.tool, d.start, d.cur, s.snap || d.snapKey || e.shiftKey);
         return;
       case 'connect': {
         const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-box-id]');
@@ -431,7 +425,7 @@ export function Canvas() {
     if (target.closest('[data-edge-id]') || s.tool !== 'select') return;
     // 빈 곳을 더블클릭하면 글상자를 만든다
     const p = toWorld(e.clientX, e.clientY);
-    const snapOn = s.snap || e.ctrlKey || e.metaKey;
+    const snapOn = s.snap || e.shiftKey;
     const box = boxForTool('text', snapOn ? snap(p.x) : p.x, snapOn ? snap(p.y - 24) : p.y - 24, new Set());
     if (box) {
       s.addBox(box);
@@ -507,8 +501,7 @@ export function Canvas() {
                 y={overlay.r.y}
                 width={overlay.r.w}
                 height={overlay.r.h}
-                fill={overlay.marquee ? 'rgba(47,91,211,0.08)' : 'rgba(255,255,255,0.6)'}
-                stroke="#2F5BD3"
+                className={overlay.marquee ? 'overlay-marquee' : 'overlay-create'}
                 strokeWidth={1.5 / view.zoom}
                 strokeDasharray={overlay.marquee ? `${4 / view.zoom} ${3 / view.zoom}` : undefined}
               />
@@ -518,7 +511,7 @@ export function Canvas() {
                 y1={overlay.from.y}
                 x2={overlay.to.x}
                 y2={overlay.to.y}
-                stroke="#2F5BD3"
+                className="overlay-line"
                 strokeWidth={2 / view.zoom}
                 strokeDasharray={`${6 / view.zoom} ${4 / view.zoom}`}
               />
@@ -530,9 +523,9 @@ export function Canvas() {
         <div className="empty-hint">
           왼쪽 도구로 워크박스를 만들거나, 빈 곳을 더블클릭해 글을 써 보세요.
           <br />
-          휠: 확대/축소 · 빈 곳 끌기: 화면 이동 · Shift+끌기: 여러 개 선택
+          휠: 확대/축소 · Space+끌기: 화면 이동 · 빈 곳 끌기: 영역 선택
           <br />
-          Ctrl+끌기: 점에 맞추기 · Alt+끌기: 복사
+          Shift+끌기: 점에 맞추기 · Alt+끌기: 복사 · Ctrl+클릭: 선택 추가
         </div>
       )}
     </div>

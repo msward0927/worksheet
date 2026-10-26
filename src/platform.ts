@@ -14,6 +14,7 @@ export interface DesktopApi {
   openImage(): Promise<string | null>;
   setDirty(dirty: boolean): void;
   setTitle(title: string): void;
+  setTheme(theme: 'light' | 'dark'): void;
   forceClose(): void;
   onSaveAndClose(cb: () => void): void;
   initialFile(): Promise<FileResult | null>;
@@ -72,6 +73,7 @@ const browserApi: DesktopApi = {
   setTitle(title) {
     document.title = title;
   },
+  setTheme() {},
   forceClose() {},
   onSaveAndClose() {},
   async initialFile() {

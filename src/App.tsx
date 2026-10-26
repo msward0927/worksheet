@@ -3,7 +3,7 @@ import { Canvas, pasteFallback } from './components/Canvas';
 import { Home } from './components/Home';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { TOOLS, Toolbar } from './components/Toolbar';
-import { TopBar, ZoomControls } from './components/TopBar';
+import { ThemeButton, TopBar, ZoomControls } from './components/TopBar';
 import { newFromTemplate, openContent, openFromDialog, saveDoc } from './fileOps';
 import { fileNameOf, platform } from './platform';
 import { useStore } from './store';
@@ -102,7 +102,12 @@ function useDesktopSync() {
   const dirty = useStore((s) => s.dirty);
   const title = useStore((s) => (s.filePath ? fileNameOf(s.filePath) : s.doc.title));
   const screen = useStore((s) => s.screen);
+  const theme = useStore((s) => s.theme);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    platform.setTheme(theme);
+  }, [theme]);
   useEffect(() => platform.setDirty(dirty), [dirty]);
   useEffect(() => {
     platform.setTitle(screen === 'editor' ? `${dirty ? '● ' : ''}${title || '제목 없음'} — Worksheet` : 'Worksheet');
@@ -136,6 +141,8 @@ export function App() {
               </span>
               <span className="brand-name">Worksheet</span>
             </div>
+            <div className="spacer" />
+            <ThemeButton />
           </header>
           <Home />
         </>

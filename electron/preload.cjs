@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   openImage: () => ipcRenderer.invoke('image:open'),
   setDirty: (dirty) => ipcRenderer.send('app:setDirty', dirty),
   setTitle: (title) => ipcRenderer.send('app:setTitle', title),
+  setTheme: (theme) => ipcRenderer.send('app:setTheme', theme),
   forceClose: () => ipcRenderer.send('app:forceClose'),
   onSaveAndClose: (cb) => {
     ipcRenderer.removeAllListeners('app:save-and-close');

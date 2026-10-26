@@ -5,6 +5,7 @@ import { EDGE_COLORS, FILLS, KIND_LABEL, STROKES, uid } from '../boxes';
 import { FUNCTION_NAMES, formatNumber, parseNumberInput, references, type BoxResult } from '../formula';
 import { platform } from '../platform';
 import { useStore, type AlignMode } from '../store';
+import { themed } from '../theme';
 import type { Box, BoxKind, Edge, NumberFormat, Shape } from '../types';
 import { useResults } from '../useResults';
 import { Icon } from './icons';
@@ -56,13 +57,14 @@ function Seg<T extends string>({ value, options, onChange, cols }: { value: T; o
 }
 
 function Swatches({ colors, value, onChange, label }: { colors: string[]; value: string; onChange: (c: string) => void; label: (c: string) => string }) {
+  const theme = useStore((s) => s.theme);
   return (
     <div className="swatches">
       {colors.map((c) => (
         <button
           key={c}
           className={`swatch${c === value ? ' on' : ''}${c === 'transparent' || c === 'none' ? ' empty' : ''}`}
-          style={{ background: c === 'none' || c === 'transparent' ? undefined : c }}
+          style={{ background: c === 'none' || c === 'transparent' ? undefined : themed(c, theme) }}
           onClick={() => onChange(c)}
           aria-label={label(c)}
           title={label(c)}
@@ -93,6 +95,7 @@ function DocPanel() {
   const count = useStore((s) => s.doc.boxes.length);
   const edges = useStore((s) => s.doc.edges.length);
   const snapOn = useStore((s) => s.snap);
+  const theme = useStore((s) => s.theme);
   return (
     <>
       <div className="panel-head">
@@ -107,15 +110,19 @@ function DocPanel() {
           <span>항상 점에 맞추기</span>
           <input type="checkbox" checked={snapOn} onChange={(e) => useStore.getState().setSnap(e.target.checked)} />
         </label>
-        <div className="muted small">꺼져 있어도 Ctrl 을 누르고 옮기거나 만들면 점에 맞춰져요.</div>
+        <div className="muted small">꺼져 있어도 Shift 를 누르고 옮기거나 만들면 점에 맞춰져요.</div>
+        <label className="toggle">
+          <span>어두운 테마</span>
+          <input type="checkbox" checked={theme === 'dark'} onChange={(e) => useStore.getState().setTheme(e.target.checked ? 'dark' : 'light')} />
+        </label>
       </Section>
       <Section title="사용법">
         <ul className="help">
-          <li><b>휠</b> 확대 / 축소 · <b>Shift+휠</b> 가로 이동</li>
-          <li><b>빈 곳 끌기</b> · <b>Space+끌기</b> 화면 이동</li>
-          <li><b>Shift+끌기</b> 여러 박스 선택</li>
-          <li><b>Ctrl+끌기</b> 점에 맞춰 이동 (왼쪽 위 꼭짓점 기준)</li>
-          <li><b>Ctrl</b>을 누르고 만들기: 네 꼭짓점을 점에 맞춤</li>
+          <li><b>휠</b> 확대 / 축소</li>
+          <li><b>Space+끌기</b> 화면 이동</li>
+          <li><b>빈 곳 끌기</b> 영역 선택 · <b>Ctrl+클릭</b> 선택 추가/빼기</li>
+          <li><b>Shift+끌기</b> 점에 맞춰 이동 (왼쪽 위 꼭짓점 기준)</li>
+          <li><b>Shift</b>를 누르고 만들기: 네 꼭짓점을 점에 맞춤</li>
           <li><b>Alt+끌기</b> 박스 복사</li>
           <li><b>더블클릭</b> 박스 내용 편집 · 빈 곳에 글상자</li>
           <li>선택한 박스 오른쪽 <b>파란 점</b>을 끌어 연결</li>

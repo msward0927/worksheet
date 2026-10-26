@@ -93,6 +93,17 @@ export const Icon = {
       <path d="M4 11l8-7 8 7v9H4z" />
     </Svg>
   ),
+  sun: () => (
+    <Svg size={18}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </Svg>
+  ),
+  moon: () => (
+    <Svg size={18}>
+      <path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z" />
+    </Svg>
+  ),
   check: () => (
     <Svg size={14}>
       <path d="M5 12l5 5 9-10" />

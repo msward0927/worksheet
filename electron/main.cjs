@@ -1,6 +1,6 @@
 // Electron 메인 프로세스: 창을 만들고, 파일 열기/저장 대화상자와 최근 파일 목록을 맡는다.
 
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
@@ -195,6 +195,13 @@ ipcMain.on('app:setDirty', (_e, value) => {
 
 ipcMain.on('app:setTitle', (_e, title) => {
   if (win && typeof title === 'string') win.setTitle(title);
+});
+
+// 테마에 맞춰 창 바탕색과 제목 표시줄/대화상자 색을 바꾼다
+ipcMain.on('app:setTheme', (_e, theme) => {
+  const dark = theme === 'dark';
+  nativeTheme.themeSource = dark ? 'dark' : 'light';
+  if (win) win.setBackgroundColor(dark ? '#26292e' : '#fbfaf7');
 });
 
 ipcMain.on('app:forceClose', () => {

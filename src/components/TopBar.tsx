@@ -62,6 +62,21 @@ function Menu({ label, items }: { label: string; items: Item[] }) {
   );
 }
 
+export function ThemeButton() {
+  const theme = useStore((s) => s.theme);
+  const dark = theme === 'dark';
+  return (
+    <button
+      className="icon-btn"
+      onClick={() => useStore.getState().setTheme(dark ? 'light' : 'dark')}
+      aria-label={dark ? '밝은 테마로' : '어두운 테마로'}
+      title={dark ? '밝은 테마로' : '어두운 테마로'}
+    >
+      {dark ? <Icon.sun /> : <Icon.moon />}
+    </button>
+  );
+}
+
 export function TopBar() {
   const title = useStore((s) => s.doc.title);
   const filePath = useStore((s) => s.filePath);
@@ -69,6 +84,7 @@ export function TopBar() {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const snapOn = useStore((s) => s.snap);
+  const theme = useStore((s) => s.theme);
   const s = useStore.getState();
 
   return (
@@ -112,6 +128,8 @@ export function TopBar() {
             { label: '100%', shortcut: 'Ctrl+0', run: () => setZoom(1) },
             { label: '화면에 맞추기', shortcut: 'Ctrl+1', run: () => fitView() },
             { label: '항상 점에 맞추기', checked: snapOn, run: () => s.setSnap(!snapOn), divider: true },
+            { label: '밝은 테마', checked: theme === 'light', run: () => s.setTheme('light'), divider: true },
+            { label: '어두운 테마', checked: theme === 'dark', run: () => s.setTheme('dark') },
           ]}
         />
       </nav>
@@ -127,6 +145,7 @@ export function TopBar() {
         ) : null}
       </div>
       <div className="top-actions">
+        <ThemeButton />
         <button className="icon-btn" onClick={() => s.undo()} disabled={!canUndo} aria-label="실행 취소" title="실행 취소 (Ctrl+Z)">
           <Icon.undo />
         </button>
