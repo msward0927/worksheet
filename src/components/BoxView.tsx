@@ -4,6 +4,7 @@ import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { KIND_LABEL, uid } from '../boxes';
 import { formatNumber, parseNumberInput, type BoxResult } from '../formula';
 import { useStore } from '../store';
+import { textStyle, verticalJustify } from '../textStyle';
 import { themed } from '../theme';
 import type { Box, CheckItem } from '../types';
 
@@ -58,7 +59,9 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren
           : '12px 14px';
 
   const showHeader = box.kind !== 'image' && box.kind !== 'shape' && (box.name.trim() !== '' || box.kind !== 'text');
-  const centered = isEllipse || isDiamond || box.align === 'center';
+  const isText = box.kind === 'text';
+  // 텍스트 박스는 가로/세로 정렬을 직접 정하고, 다른 박스는 원·마름모일 때 가운데로 모은다
+  const centered = !isText && (isEllipse || isDiamond);
   const handle = 9 / zoom;
   // 점 모눈은 캔버스의 점과 같은 자리(24px 격자)에 오도록 맞춘다
   const dots =
@@ -103,7 +106,11 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, hasChildren
       )}
       {isDiamond && dots && <div className="diamond-dots" style={dots} aria-hidden="true" />}
       {box.kind !== 'shape' && (
-        <div ref={innerRef} className={`box-inner${centered ? ' centered' : ''}`} style={{ padding: pad }}>
+        <div
+          ref={innerRef}
+          className={`box-inner${centered ? ' centered' : ''}`}
+          style={isText ? { padding: box.padding ?? pad, justifyContent: verticalJustify(box) } : { padding: pad }}
+        >
           {showHeader && <Header box={box} centered={centered} />}
           <Content box={box} editing={editing} result={result} />
         </div>
@@ -209,7 +216,8 @@ function AutoTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) 
 }
 
 function TextContent({ box, editing }: { box: Box; editing: boolean }) {
-  const style = { fontSize: box.fontSize, fontWeight: box.bold ? 700 : 400, textAlign: box.align };
+  const theme = useStore((s) => s.theme);
+  const style = textStyle(box, theme);
   if (editing) {
     return (
       <AutoTextarea

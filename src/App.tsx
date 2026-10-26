@@ -27,6 +27,20 @@ function useKeyboard() {
         s.openSettings();
         return;
       }
+      // 텍스트 박스 글자 꾸밈 (편집 중에도 동작)
+      if (mod && (key === 'b' || key === 'i' || key === 'u') && !s.settingsOpen && s.screen === 'editor') {
+        const field = ({ b: 'bold', i: 'italic', u: 'underline' } as const)[key];
+        const texts = s.doc.boxes.filter((b) => s.selected.includes(b.id) && b.kind === 'text');
+        if (texts.length > 0) {
+          e.preventDefault();
+          const on = !texts.every((b) => b[field]);
+          s.updateBoxes(
+            texts.map((b) => b.id),
+            { [field]: on },
+          );
+          return;
+        }
+      }
       // 설정 창이 열려 있으면 Esc 로 닫는 것 말고는 캔버스 단축키를 쓰지 않는다
       if (s.settingsOpen) {
         if (e.key === 'Escape') s.closeSettings();

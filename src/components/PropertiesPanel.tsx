@@ -1,12 +1,13 @@
 // 오른쪽 속성 패널: 선택한 박스/연결선의 형식, 이름, 수식, 모양, 색을 바꾼다
 
 import { useEffect, useState } from 'react';
-import { EDGE_COLORS, FILLS, KIND_LABEL, STROKES, uid } from '../boxes';
+import { EDGE_COLORS, FILLS, KIND_LABEL, STROKES, TEXT_COLORS, uid } from '../boxes';
+import { FONTS } from '../textStyle';
 import { FUNCTION_NAMES, formatNumber, parseNumberInput, references, type BoxResult } from '../formula';
 import { platform } from '../platform';
 import { useStore, type AlignMode } from '../store';
 import { themed } from '../theme';
-import type { Box, BoxKind, Edge, NumberFormat, Shape } from '../types';
+import type { Box, BoxKind, Edge, NumberFormat, Shape, TextAlign, VAlign } from '../types';
 import { useResults } from '../useResults';
 import { Icon } from './icons';
 
@@ -56,20 +57,33 @@ function Seg<T extends string>({ value, options, onChange, cols }: { value: T; o
   );
 }
 
+const isHex = (c: string) => /^#[0-9a-f]{6}$/i.test(c);
+
 function Swatches({ colors, value, onChange, label }: { colors: string[]; value: string; onChange: (c: string) => void; label: (c: string) => string }) {
   const theme = useStore((s) => s.theme);
+  const custom = !colors.some((c) => c.toLowerCase() === value.toLowerCase());
   return (
     <div className="swatches">
-      {colors.map((c) => (
-        <button
-          key={c}
-          className={`swatch${c === value ? ' on' : ''}${c === 'transparent' || c === 'none' ? ' empty' : ''}`}
-          style={{ background: c === 'none' || c === 'transparent' ? undefined : themed(c, theme) }}
-          onClick={() => onChange(c)}
-          aria-label={label(c)}
-          title={label(c)}
-        />
-      ))}
+      {colors.map((c) =>
+        c === '' ? (
+          <button key="auto" className={`swatch auto${value === '' ? ' on' : ''}`} onClick={() => onChange('')} aria-label="기본 색" title="기본 색 (테마에 맞춤)">
+            A
+          </button>
+        ) : (
+          <button
+            key={c}
+            className={`swatch${c.toLowerCase() === value.toLowerCase() ? ' on' : ''}${c === 'transparent' || c === 'none' ? ' empty' : ''}`}
+            style={{ background: c === 'none' || c === 'transparent' ? undefined : themed(c, theme) }}
+            onClick={() => onChange(c)}
+            aria-label={label(c)}
+            title={label(c)}
+          />
+        ),
+      )}
+      {/* 팔레트에 없는 색은 직접 고른다 */}
+      <label className={`swatch picker${custom ? ' on' : ''}`} title="색 직접 고르기" style={custom && isHex(value) ? { background: value } : undefined}>
+        <input type="color" value={isHex(value) ? value : '#888888'} onChange={(e) => onChange(e.target.value)} aria-label="색 직접 고르기" />
+      </label>
     </div>
   );
 }
@@ -231,32 +245,146 @@ function BoxPanel({ box }: { box: Box }) {
 
 type Upd = (patch: Partial<Box>, key?: string) => void;
 
+const AlignIcon = ({ kind }: { kind: string }) => {
+  const lines: Record<string, string> = {
+    left: 'M4 6h16M4 10h10M4 14h16M4 18h10',
+    center: 'M4 6h16M7 10h10M4 14h16M7 18h10',
+    right: 'M4 6h16M10 10h10M4 14h16M10 18h10',
+    top: 'M4 4h16M8 8h8M8 12h8',
+    middle: 'M8 8h8M4 12h16M8 16h8',
+    bottom: 'M8 12h8M8 16h8M4 20h16',
+  };
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+      <path d={lines[kind]} />
+    </svg>
+  );
+};
+
+function Slider({ label, value, min, max, step, unit, onChange, onReset, display }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void; onReset?: () => void; display?: string }) {
+  return (
+    <label className="slider">
+      <span className="slider-head">
+        <span>{label}</span>
+        <span className="hint">
+          {display ?? `${value}${unit}`}
+          {onReset && (
+            <button
+              type="button"
+              className="link-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                onReset();
+              }}
+            >
+              자동
+            </button>
+          )}
+        </span>
+      </span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </label>
+  );
+}
+
 function TextFields({ box, update }: { box: Box; update: Upd }) {
+  const autoPad = box.fill === 'transparent' && box.stroke === 'none' ? 2 : 12;
+  const setSize = (n: number) => update({ fontSize: Math.min(200, Math.max(6, Math.round(n))) }, `${box.id}:fontSize`);
   return (
     <>
       <label className="field">
         <span className="section-title">내용</span>
         <textarea rows={4} value={box.text} onChange={(e) => update({ text: e.target.value }, `${box.id}:text`)} />
       </label>
-      <Section title="글자">
+
+      <Section title="글꼴">
+        <select value={box.fontFamily} onChange={(e) => update({ fontFamily: e.target.value as Box['fontFamily'] })} aria-label="글꼴">
+          {FONTS.map((f) => (
+            <option key={f.v} value={f.v}>
+              {f.label}
+            </option>
+          ))}
+        </select>
         <div className="row">
-          <select value={box.fontSize} onChange={(e) => update({ fontSize: Number(e.target.value) })} aria-label="글자 크기">
-            {[11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64].map((n) => (
+          <button className="icon-btn bordered" onClick={() => setSize(box.fontSize - 1)} aria-label="글자 작게" title="글자 작게">
+            A−
+          </button>
+          <label className="size-input">
+            <input type="number" min={6} max={200} value={box.fontSize} onChange={(e) => Number.isFinite(Number(e.target.value)) && setSize(Number(e.target.value))} aria-label="글자 크기" />
+            <span className="muted">px</span>
+          </label>
+          <button className="icon-btn bordered" onClick={() => setSize(box.fontSize + 1)} aria-label="글자 크게" title="글자 크게">
+            A+
+          </button>
+          <select value="" onChange={(e) => e.target.value && setSize(Number(e.target.value))} aria-label="자주 쓰는 크기" className="size-preset">
+            <option value="">크기</option>
+            {[10, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40, 48, 64, 80, 96].map((n) => (
               <option key={n} value={n}>
                 {n}px
               </option>
             ))}
           </select>
-          <button className={`chip${box.bold ? ' on' : ''}`} onClick={() => update({ bold: !box.bold })} aria-pressed={box.bold}>
-            <b>굵게</b>
+        </div>
+      </Section>
+
+      <Section title="꾸밈">
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+          <button className={box.bold ? 'on' : ''} onClick={() => update({ bold: !box.bold })} aria-pressed={box.bold} title="굵게 (Ctrl+B)">
+            <b>B</b>
           </button>
-          <button className={`chip${box.align === 'left' ? ' on' : ''}`} onClick={() => update({ align: 'left' })} aria-pressed={box.align === 'left'}>
-            왼쪽
+          <button className={box.italic ? 'on' : ''} onClick={() => update({ italic: !box.italic })} aria-pressed={box.italic} title="기울임 (Ctrl+I)">
+            <i style={{ fontFamily: 'serif' }}>I</i>
           </button>
-          <button className={`chip${box.align === 'center' ? ' on' : ''}`} onClick={() => update({ align: 'center' })} aria-pressed={box.align === 'center'}>
-            가운데
+          <button className={box.underline ? 'on' : ''} onClick={() => update({ underline: !box.underline })} aria-pressed={box.underline} title="밑줄 (Ctrl+U)">
+            <u>U</u>
+          </button>
+          <button className={box.strike ? 'on' : ''} onClick={() => update({ strike: !box.strike })} aria-pressed={box.strike} title="취소선">
+            <s>S</s>
           </button>
         </div>
+      </Section>
+
+      <Section title="가로 정렬">
+        <Seg<TextAlign>
+          value={box.align}
+          onChange={(align) => update({ align })}
+          options={[
+            { v: 'left', label: <AlignIcon kind="left" />, title: '왼쪽' },
+            { v: 'center', label: <AlignIcon kind="center" />, title: '가운데' },
+            { v: 'right', label: <AlignIcon kind="right" />, title: '오른쪽' },
+          ]}
+        />
+      </Section>
+      <Section title="세로 정렬">
+        <Seg<VAlign>
+          value={box.valign}
+          onChange={(valign) => update({ valign })}
+          options={[
+            { v: 'top', label: <AlignIcon kind="top" />, title: '위' },
+            { v: 'middle', label: <AlignIcon kind="middle" />, title: '가운데' },
+            { v: 'bottom', label: <AlignIcon kind="bottom" />, title: '아래' },
+          ]}
+        />
+      </Section>
+
+      <Section title="글자 색">
+        <Swatches colors={TEXT_COLORS} value={box.textColor} onChange={(textColor) => update({ textColor }, `${box.id}:textColor`)} label={(c) => c} />
+      </Section>
+
+      <Section title="간격">
+        <Slider label="줄 간격" value={box.lineHeight} min={0.8} max={3} step={0.05} unit="" display={`${box.lineHeight.toFixed(2)}배`} onChange={(lineHeight) => update({ lineHeight }, `${box.id}:lineHeight`)} />
+        <Slider label="자간" value={box.letterSpacing} min={-3} max={20} step={0.5} unit="px" onChange={(letterSpacing) => update({ letterSpacing }, `${box.id}:letterSpacing`)} />
+        <Slider
+          label="안쪽 여백"
+          value={box.padding ?? autoPad}
+          min={0}
+          max={64}
+          step={1}
+          unit="px"
+          display={box.padding === null ? `자동 (${autoPad}px)` : `${box.padding}px`}
+          onChange={(padding) => update({ padding }, `${box.id}:padding`)}
+          onReset={box.padding === null ? undefined : () => update({ padding: null })}
+        />
       </Section>
     </>
   );

@@ -217,6 +217,9 @@ function KeysTab() {
           [<K key="7">Ctrl+A</K>, '모두 선택'],
           [<K key="8">Delete</K>, '삭제'],
           [<K key="9">Enter</K>, '선택한 박스 편집'],
+          [<K key="b">Ctrl+B</K>, '텍스트 굵게'],
+          [<K key="i">Ctrl+I</K>, '텍스트 기울임'],
+          [<K key="u">Ctrl+U</K>, '텍스트 밑줄'],
           [<K key="10">Esc</K>, '편집 끝내기 · 도구 해제 · 선택 해제'],
           ['방향키', '1px 옮기기 (Shift: 점 한 칸)'],
         ]}

@@ -11,6 +11,7 @@ export function uid(): string {
 
 export const FILLS = ['#FFFFFF', '#FFF4C7', '#E3ECFF', '#DDF3E6', '#FCE5D6', '#ECE4FA', '#F3F1EC', 'transparent'];
 export const STROKES = ['#D6D1C6', '#3D4148', '#2F5BD3', '#A6531A', '#2F7A4B', '#7A52C7', '#B23B3B', 'none'];
+export const TEXT_COLORS = ['', '#1F2328', '#6B6760', '#2F5BD3', '#A6531A', '#2F7A4B', '#7A52C7', '#B23B3B'];
 export const EDGE_COLORS = ['#3D4148', '#8A857A', '#2F5BD3', '#7A52C7', '#C2561B', '#2F7A4B', '#B23B3B'];
 
 export const KIND_LABEL: Record<BoxKind, string> = {
@@ -52,7 +53,16 @@ export function makeBox(kind: BoxKind, x: number, y: number, patch: Partial<Box>
     format: 'plain',
     fontSize: 14,
     bold: false,
+    italic: false,
+    underline: false,
+    strike: false,
     align: 'left',
+    valign: 'top',
+    textColor: '',
+    fontFamily: 'sans',
+    lineHeight: 1.6,
+    letterSpacing: 0,
+    padding: null,
     parentId: null,
     ...patch,
   };

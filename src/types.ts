@@ -2,7 +2,9 @@
 
 /** shape: 글 없는 워크박스(다른 박스를 담는 틀), text: 텍스트 박스 */
 export type BoxKind = 'shape' | 'text' | 'number' | 'formula' | 'checklist' | 'image';
-export type TextAlign = 'left' | 'center';
+export type TextAlign = 'left' | 'center' | 'right';
+export type VAlign = 'top' | 'middle' | 'bottom';
+export type FontFamily = 'sans' | 'serif' | 'gulim' | 'dotum' | 'gungsuh' | 'mono';
 export type Shape = 'rect' | 'rounded' | 'ellipse' | 'diamond';
 export type NumberFormat = 'plain' | 'currency' | 'percent';
 
@@ -35,7 +37,20 @@ export interface Box {
   format: NumberFormat;
   fontSize: number;
   bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  /** 가로 / 세로 정렬 */
   align: TextAlign;
+  valign: VAlign;
+  /** 글자 색. 빈 문자열이면 테마의 기본 글자 색 */
+  textColor: string;
+  fontFamily: FontFamily;
+  lineHeight: number;
+  /** 자간 (px) */
+  letterSpacing: number;
+  /** 안쪽 여백 (px). null 이면 박스 모양에 맞춰 자동 */
+  padding: number | null;
   /** 이 박스를 담고 있는 워크박스. 좌표는 부모와 상관없이 캔버스 기준이다 */
   parentId: string | null;
 }

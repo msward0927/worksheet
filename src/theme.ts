@@ -22,6 +22,8 @@ const DARK: Record<string, string> = {
   '#93aee6': '#5a7baa',
   '#b7a0e3': '#7e6aa8',
   // 선/글자 색
+  '#1f2328': '#e7ebf0',
+  '#6b6760': '#9aa3ae',
   '#3d4148': '#c9d1db',
   '#8a857a': '#8d96a3',
   '#2f5bd3': '#8cc8f0',
