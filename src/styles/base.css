@@ -1,0 +1,308 @@
+/* 색 · 글꼴 · 그림자 토큰과 기본 요소 */
+
+:root {
+  color-scheme: light;
+  --paper: #f5f4f0;
+  --dot: #cbc6bb;
+  --surface: #ffffff;
+  --surface-2: #faf9f6;
+  /* 캔버스 위에 떠 있는 막대와 패널 */
+  --raised: #ffffff;
+  --line: #e7e4dd;
+  --line-strong: #d7d3c9;
+  --line-dashed: #b9b3a6;
+  --ink: #1c1d21;
+  --ink-2: #45474d;
+  --muted: #75736c;
+  --muted-2: #5b5850;
+  --placeholder: #a39f95;
+  --hover: #f1efea;
+  --subtle: #efede7;
+  --stripe: #e6e3db;
+  --accent: #2f5bd3;
+  --accent-hover: #2850bd;
+  --accent-soft: #e9effc;
+  --accent-glow: rgba(47, 91, 211, 0.28);
+  --accent-shadow: rgba(47, 91, 211, 0.13);
+  --on-accent: #ffffff;
+  --num-soft: #e8eefb;
+  --num-line: #c9daf8;
+  --fx: #a6531a;
+  --fx-soft: #fbefe3;
+  --ok: #2f7a4b;
+  --danger: #b23b3b;
+  --error-bg: #fbecec;
+  --sticky: #fff4c7;
+  --sticky-line: #e8d88a;
+  --paper-veil: rgba(245, 244, 240, 0.85);
+  --scrim: rgba(18, 20, 24, 0.4);
+
+  --shadow-sm: 0 1px 2px rgba(20, 22, 28, 0.06);
+  --shadow-box: 0 1px 2px rgba(20, 22, 28, 0.05), 0 3px 10px rgba(20, 22, 28, 0.04);
+  --shadow-float: 0 1px 2px rgba(20, 22, 28, 0.06), 0 10px 32px rgba(20, 22, 28, 0.12);
+  --shadow-pop: 0 2px 6px rgba(20, 22, 28, 0.08), 0 18px 48px rgba(20, 22, 28, 0.18);
+
+  --radius: 10px;
+  --radius-lg: 14px;
+  --font: 'Pretendard Variable', Pretendard, 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, 'D2Coding', ui-monospace, monospace;
+}
+
+/* 어두운 테마: 어두운 회색 바탕 + 옅은 하늘색 강조 */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #1d1f23;
+  --dot: #46596a;
+  --surface: #26292e;
+  --surface-2: #222529;
+  --raised: #2a2d33;
+  --line: #363a41;
+  --line-strong: #454a52;
+  --line-dashed: #5a616b;
+  --ink: #e9ecf1;
+  --ink-2: #c6ccd5;
+  --muted: #98a1ac;
+  --muted-2: #b3bbc5;
+  --placeholder: #6f7883;
+  --hover: #33373e;
+  --subtle: #33373e;
+  --stripe: #3b4048;
+  --accent: #8cc8f0;
+  --accent-hover: #a8d6f6;
+  --accent-soft: rgba(140, 200, 240, 0.14);
+  --accent-glow: rgba(140, 200, 240, 0.35);
+  --accent-shadow: rgba(140, 200, 240, 0.16);
+  --on-accent: #14202b;
+  --num-soft: #2c3d52;
+  --num-line: #3f5d7a;
+  --fx: #f0b985;
+  --fx-soft: #4a3a2c;
+  --ok: #7fd1a0;
+  --danger: #f08c8c;
+  --error-bg: #4a2e2e;
+  --sticky: #4a4430;
+  --sticky-line: #7a6e3e;
+  --paper-veil: rgba(29, 31, 35, 0.85);
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-box: 0 1px 2px rgba(0, 0, 0, 0.25), 0 3px 10px rgba(0, 0, 0, 0.18);
+  --shadow-float: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 36px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 2px 8px rgba(0, 0, 0, 0.4), 0 20px 52px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss06';
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: var(--accent-glow);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--ink-2);
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* 얇은 스크롤 막대 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- 버튼 ---------- */
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  border-radius: 9px;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.icon-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.btn {
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.btn.danger {
+  color: var(--danger);
+}
+
+/* ---------- 말풍선 도움말 (data-tip) ---------- */
+
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 9px;
+  border-radius: 7px;
+  pointer-events: none;
+  z-index: 60;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-tip-up]:hover::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+/* ---------- 알림 ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--surface);
+  padding: 10px 16px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+  z-index: 100;
+  font-size: 13px;
+  font-weight: 500;
+  animation: toast-in 0.18s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}

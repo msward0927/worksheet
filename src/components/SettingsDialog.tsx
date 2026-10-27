@@ -82,6 +82,7 @@ function ThemeCard({ value, label, desc }: { value: Theme; label: string; desc: 
 }
 
 function DisplayTab() {
+  const autosave = useStore((s) => s.autosave);
   return (
     <>
       <h3>테마</h3>
@@ -92,14 +93,44 @@ function DisplayTab() {
       <p className="muted small">
         위쪽 막대의 해/달 버튼으로도 바로 바꿀 수 있어요. 박스 색은 화면에서만 테마에 맞춰 바뀌고, 파일에 저장된 색은 그대로예요.
       </p>
+      <h3>저장</h3>
+      <label className="setting-row">
+        <span>
+          <b>자동 저장</b>
+          <span className="muted small">고칠 때마다 잠시 뒤 파일에 바로 저장해요. 끄면 Ctrl+S 로 직접 저장해요.</span>
+        </span>
+        <input type="checkbox" checked={autosave} onChange={(e) => useStore.getState().setAutosave(e.target.checked)} />
+      </label>
+      <ul className="help">
+        <li>새로 만든 워크시트는 바로 '내 워크시트' 모음에 파일로 생겨요. 따로 저장 위치를 고를 필요가 없어요.</li>
+        <li>위쪽 막대의 이름을 고치면 파일 이름도 함께 바뀌어요.</li>
+      </ul>
     </>
   );
 }
 
 function CanvasTab() {
   const snapOn = useStore((s) => s.snap);
+  const wheel = useStore((s) => s.wheelMode);
   return (
     <>
+      <h3>마우스 휠</h3>
+      <div className="seg wide" role="radiogroup" aria-label="휠 동작">
+        {(
+          [
+            ['zoom', '확대 / 축소', '마우스를 쓸 때'],
+            ['pan', '화면 이동', '노트북 터치패드를 쓸 때'],
+          ] as const
+        ).map(([v, label, desc]) => (
+          <button key={v} role="radio" aria-checked={wheel === v} className={wheel === v ? 'on' : ''} onClick={() => useStore.getState().setWheelMode(v)}>
+            <b>{label}</b>
+            <span className="muted small">{desc}</span>
+          </button>
+        ))}
+      </div>
+      <p className="muted small">
+        {wheel === 'zoom' ? '휠을 굴리면 확대 / 축소, Shift+휠은 가로 이동이에요.' : '두 손가락으로 밀면 화면이 움직이고, Ctrl+휠이나 손가락 벌리기로 확대 / 축소해요.'}
+      </p>
       <h3>점에 맞추기</h3>
       <label className="setting-row">
         <span>
@@ -152,7 +183,7 @@ function MouseTab() {
       <h3>화면</h3>
       <Rows
         rows={[
-          ['휠', '확대 / 축소 (5% ~ 800%, 끝에 가까울수록 천천히)'],
+          ['휠', '확대 / 축소 (5% ~ 800%, 끝에 가까울수록 천천히) · 설정 → 캔버스에서 화면 이동으로 바꿀 수 있어요'],
           [<K key="k">Space</K>, '누른 채 끌어서 화면 이동'],
           ['휠 버튼 끌기', '화면 이동'],
         ]}
@@ -175,6 +206,7 @@ function MouseTab() {
           ['모서리 손잡이', '크기 조절 (Shift: 점에 맞춤, Alt: 비율 유지)'],
           ['오른쪽 파란 점', '다른 박스로 끌어서 연결선 만들기'],
           ['더블클릭', '내용 편집 (워크박스에도 글을 쓸 수 있음) · 빈 곳이면 새 텍스트 박스'],
+          [<K key="k">Ctrl</K>, '누르고 글 속 링크(https://…)를 클릭하면 브라우저로 열기'],
         ]}
       />
       <h3>워크박스 안의 워크박스</h3>
@@ -205,6 +237,17 @@ function KeysTab() {
     <>
       <h3>도구</h3>
       <Rows rows={TOOLS.map((t) => [<kbd key={t.tool}>{t.key}</kbd>, t.label] as [React.ReactNode, React.ReactNode])} />
+      <h3>빨리 쓰기</h3>
+      <Rows
+        rows={[
+          [<K key="1">Tab</K>, '오른쪽에 연결된 새 박스를 만들고 바로 쓰기 (생각 이어가기)'],
+          [<K key="2">Ctrl+Enter</K>, '아래에 같은 모양의 새 박스를 만들고 바로 쓰기 (목록 이어가기)'],
+          [<K key="3">Ctrl+F</K>, '찾기 · 목차. 비워 두면 워크박스와 큰 제목이 목차로 보여요'],
+          [<K key="4">Ctrl+G</K>, '고른 박스들을 워크박스로 묶기'],
+          [<K key="5">Ctrl+Shift+G</K>, '묶음 풀기 (워크박스만 지우고 안의 박스는 남김)'],
+          [<K key="6">Ctrl+.</K>, '속성 패널 열기 / 닫기'],
+        ]}
+      />
       <h3>편집</h3>
       <Rows
         rows={[
@@ -229,7 +272,7 @@ function KeysTab() {
         rows={[
           [<K key="1">Ctrl+N</K>, '새 워크시트'],
           [<K key="2">Ctrl+O</K>, '열기'],
-          [<K key="3">Ctrl+S</K>, '저장'],
+          [<K key="3">Ctrl+S</K>, '지금 저장 (자동 저장이 켜져 있으면 따로 누르지 않아도 돼요)'],
           [<K key="4">Ctrl+Shift+S</K>, '다른 이름으로 저장'],
           [<K key="5">Ctrl+,</K>, '설정'],
           [<K key="6">Ctrl+0</K>, '100% 로 보기'],
@@ -290,9 +333,15 @@ function AboutTab() {
           ['버전', version],
           ['파일 형식', '.wsht (이미지를 포함한 JSON)'],
           ['설정 저장 위치', dir ?? (isDesktop ? '…' : '브라우저 저장소')],
+          ['내 워크시트 모음', dir ? `${dir}${dir.includes('\\') ? '\\' : '/'}Worksheets` : isDesktop ? '…' : '브라우저 저장소'],
         ]}
       />
-      <p className="muted small">포터블 버전은 설정과 최근 파일 목록을 실행 파일 옆 WorksheetData 폴더에 저장해요.</p>
+      <p className="muted small">포터블 버전은 설정과 워크시트 모음을 실행 파일 옆 WorksheetData 폴더에 저장해요. 폴더째 옮기면 그대로 이어서 쓸 수 있어요.</p>
+      {isDesktop && (
+        <button className="btn" onClick={() => void platform.libReveal(null)}>
+          <Icon.folder /> 모음 폴더 열기
+        </button>
+      )}
     </>
   );
 }

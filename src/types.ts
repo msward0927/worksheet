@@ -1,6 +1,6 @@
 // 워크시트 문서의 데이터 구조. 파일(.wsht)에는 Doc 이 JSON 으로 그대로 저장된다.
 
-/** shape: 글 없는 워크박스(다른 박스를 담는 틀), text: 텍스트 박스 */
+/** shape: 워크박스(글을 쓸 수 있고 다른 박스를 담을 수 있는 틀), text: 테두리 없는 텍스트 박스 */
 export type BoxKind = 'shape' | 'text' | 'number' | 'formula' | 'checklist' | 'image';
 export type TextAlign = 'left' | 'center' | 'right';
 export type VAlign = 'top' | 'middle' | 'bottom';
@@ -40,6 +40,8 @@ export interface Box {
   italic: boolean;
   underline: boolean;
   strike: boolean;
+  /** 첫 줄을 굵고 조금 크게 (카드 제목처럼) 보여 준다 */
+  titleLine: boolean;
   /** 가로 / 세로 정렬 */
   align: TextAlign;
   valign: VAlign;

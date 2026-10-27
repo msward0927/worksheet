@@ -9,8 +9,8 @@ export function uid(): string {
   return Date.now().toString(36) + counter.toString(36).padStart(4, '0') + Math.random().toString(36).slice(2, 6);
 }
 
-export const FILLS = ['#FFFFFF', '#FFF4C7', '#E3ECFF', '#DDF3E6', '#FCE5D6', '#ECE4FA', '#F3F1EC', 'transparent'];
-export const STROKES = ['#D6D1C6', '#3D4148', '#2F5BD3', '#A6531A', '#2F7A4B', '#7A52C7', '#B23B3B', 'none'];
+export const FILLS = ['#FFFFFF', '#FFF4C7', '#E3ECFF', '#DDF3E6', '#FCE5D6', '#ECE4FA', '#FDE2E7', '#F3F1EC', 'transparent'];
+export const STROKES = ['#E3DFD6', '#9C978C', '#3D4148', '#2F5BD3', '#2F7A4B', '#A6531A', '#7A52C7', '#B23B3B', 'none'];
 export const TEXT_COLORS = ['', '#1F2328', '#6B6760', '#2F5BD3', '#A6531A', '#2F7A4B', '#7A52C7', '#B23B3B'];
 export const EDGE_COLORS = ['#3D4148', '#8A857A', '#2F5BD3', '#7A52C7', '#C2561B', '#2F7A4B', '#B23B3B'];
 
@@ -43,7 +43,7 @@ export function makeBox(kind: BoxKind, x: number, y: number, patch: Partial<Box>
     h,
     shape: 'rounded',
     fill: '#FFFFFF',
-    stroke: kind === 'formula' ? '#E2B48C' : kind === 'number' ? '#C9DAF8' : '#D6D1C6',
+    stroke: kind === 'formula' ? '#E2B48C' : kind === 'number' ? '#C9DAF8' : '#E3DFD6',
     name: '',
     text: '',
     value: null,
@@ -56,6 +56,7 @@ export function makeBox(kind: BoxKind, x: number, y: number, patch: Partial<Box>
     italic: false,
     underline: false,
     strike: false,
+    titleLine: false,
     align: 'left',
     valign: 'top',
     textColor: '',

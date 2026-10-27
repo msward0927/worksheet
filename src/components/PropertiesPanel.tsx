@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { EDGE_COLORS, FILLS, KIND_LABEL, STROKES, TEXT_COLORS, uid } from '../boxes';
+import { docName } from '../fileOps';
 import { FONTS } from '../textStyle';
 import { FUNCTION_NAMES, formatNumber, parseNumberInput, references, type BoxResult } from '../formula';
 import { platform } from '../platform';
 import { useStore, type AlignMode } from '../store';
-import { themed } from '../theme';
 import type { Box, BoxKind, Edge, EdgeSide, NumberFormat, Shape, TextAlign, VAlign } from '../types';
 import { useResults } from '../useResults';
+import { FORMATS, SHAPES, Section, Seg, Swatches, fillLabel, strokeLabel } from './controls';
 import { Icon } from './icons';
 
 export function PropertiesPanel() {
@@ -20,6 +21,12 @@ export function PropertiesPanel() {
 
   return (
     <aside className="panel" aria-label="속성">
+      <div className="panel-top">
+        <span className="eyebrow">속성</span>
+        <button className="icon-btn" onClick={() => useStore.getState().setPanelOpen(false)} aria-label="속성 패널 닫기" data-tip="닫기 (Ctrl+.)">
+          <Icon.close />
+        </button>
+      </div>
       {edge ? (
         <EdgePanel edge={edge} boxes={doc.boxes} />
       ) : boxes.length === 1 ? (
@@ -33,79 +40,8 @@ export function PropertiesPanel() {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="section">
-      <div className="section-title">
-        {title}
-        {hint && <span className="hint"> · {hint}</span>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Seg<T extends string>({ value, options, onChange, cols }: { value: T; options: { v: T; label: React.ReactNode; title?: string }[]; onChange: (v: T) => void; cols?: number }) {
-  return (
-    <div className="seg" style={{ gridTemplateColumns: `repeat(${cols ?? options.length}, minmax(0, 1fr))` }}>
-      {options.map((o) => (
-        <button key={o.v} className={o.v === value ? 'on' : ''} onClick={() => onChange(o.v)} title={o.title} aria-pressed={o.v === value}>
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const isHex = (c: string) => /^#[0-9a-f]{6}$/i.test(c);
-
-function Swatches({ colors, value, onChange, label }: { colors: string[]; value: string; onChange: (c: string) => void; label: (c: string) => string }) {
-  const theme = useStore((s) => s.theme);
-  const custom = !colors.some((c) => c.toLowerCase() === value.toLowerCase());
-  return (
-    <div className="swatches">
-      {colors.map((c) =>
-        c === '' ? (
-          <button key="auto" className={`swatch auto${value === '' ? ' on' : ''}`} onClick={() => onChange('')} aria-label="기본 색" title="기본 색 (테마에 맞춤)">
-            A
-          </button>
-        ) : (
-          <button
-            key={c}
-            className={`swatch${c.toLowerCase() === value.toLowerCase() ? ' on' : ''}${c === 'transparent' || c === 'none' ? ' empty' : ''}`}
-            style={{ background: c === 'none' || c === 'transparent' ? undefined : themed(c, theme) }}
-            onClick={() => onChange(c)}
-            aria-label={label(c)}
-            title={label(c)}
-          />
-        ),
-      )}
-      {/* 팔레트에 없는 색은 직접 고른다 */}
-      <label className={`swatch picker${custom ? ' on' : ''}`} title="색 직접 고르기" style={custom && isHex(value) ? { background: value } : undefined}>
-        <input type="color" value={isHex(value) ? value : '#888888'} onChange={(e) => onChange(e.target.value)} aria-label="색 직접 고르기" />
-      </label>
-    </div>
-  );
-}
-
-const fillLabel = (c: string) => (c === 'transparent' ? '배경 없음' : c);
-const strokeLabel = (c: string) => (c === 'none' ? '테두리 없음' : c);
-
-const SHAPES: { v: Shape; label: React.ReactNode; title: string }[] = [
-  { v: 'rect', label: <Icon.shapeRect />, title: '사각형' },
-  { v: 'rounded', label: <Icon.shapeRounded />, title: '둥근 사각형' },
-  { v: 'ellipse', label: <Icon.shapeEllipse />, title: '원' },
-  { v: 'diamond', label: <Icon.shapeDiamond />, title: '마름모' },
-];
-
-const FORMATS: { v: NumberFormat; label: string }[] = [
-  { v: 'plain', label: '1,000' },
-  { v: 'currency', label: '₩ 통화' },
-  { v: 'percent', label: '%' },
-];
-
 function DocPanel() {
-  const title = useStore((s) => s.doc.title);
+  const name = useStore((s) => docName(s.filePath, s.doc.title));
   const count = useStore((s) => s.doc.boxes.length);
   const edges = useStore((s) => s.doc.edges.length);
   const open = useStore((s) => s.openSettings);
@@ -113,7 +49,7 @@ function DocPanel() {
     <>
       <div className="panel-head">
         <div className="eyebrow">워크시트</div>
-        <input className="title-input" value={title} onChange={(e) => useStore.getState().setTitle(e.target.value)} aria-label="워크시트 제목" />
+        <div className="panel-name">{name}</div>
         <div className="muted small">
           박스 {count}개 · 연결 {edges}개
         </div>
@@ -329,7 +265,10 @@ function TextFields({ box, update }: { box: Box; update: Upd }) {
       </Section>
 
       <Section title="꾸밈">
-        <div className="seg" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+        <div className="seg" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+          <button className={box.titleLine ? 'on' : ''} onClick={() => update({ titleLine: !box.titleLine })} aria-pressed={box.titleLine} title="첫 줄을 제목으로">
+            제목
+          </button>
           <button className={box.bold ? 'on' : ''} onClick={() => update({ bold: !box.bold })} aria-pressed={box.bold} title="굵게 (Ctrl+B)">
             <b>B</b>
           </button>

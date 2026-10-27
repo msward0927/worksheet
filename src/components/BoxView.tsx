@@ -19,11 +19,13 @@ interface Props {
   showDots: boolean;
   /** 지금 끌고 있는 박스가 이 워크박스 안으로 들어갈 예정 */
   dropTarget: boolean;
+  /** 찾기로 고른 박스를 잠깐 반짝인다 */
+  flash: boolean;
 }
 
 const RADIUS: Record<Box['shape'], string> = { rect: '3px', rounded: '12px', ellipse: '50%', diamond: '0' };
 
-function BoxViewImpl({ box, selected, single, editing, result, zoom, showDots, dropTarget }: Props) {
+function BoxViewImpl({ box, selected, single, editing, result, zoom, showDots, dropTarget, flash }: Props) {
   const innerRef = useRef<HTMLDivElement>(null);
   const theme = useStore((s) => s.theme);
   const fill = themed(box.fill, theme);
@@ -78,7 +80,7 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, showDots, d
   return (
     <div
       data-box-id={box.id}
-      className={`box kind-${box.kind}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${dropTarget ? ' drop-target' : ''}`}
+      className={`box kind-${box.kind}${selected ? ' selected' : ''}${editing ? ' editing' : ''}${dropTarget ? ' drop-target' : ''}${flash ? ' flash' : ''}`}
       style={{
         left: box.x,
         top: box.y,
@@ -141,6 +143,8 @@ function BoxViewImpl({ box, selected, single, editing, result, zoom, showDots, d
 
 export const BoxView = memo(BoxViewImpl);
 
+const BADGE: Partial<Record<Box['kind'], string>> = { number: '123', formula: 'fx' };
+
 function Header({ box, centered }: { box: Box; centered: boolean }) {
   const mono = box.kind !== 'text';
   let right: React.ReactNode = null;
@@ -152,7 +156,7 @@ function Header({ box, centered }: { box: Box; centered: boolean }) {
       </span>
     );
   } else if (box.kind !== 'text') {
-    right = <span className={`badge badge-${box.kind}`}>{KIND_LABEL[box.kind]}</span>;
+    right = <span className={`badge badge-${box.kind}`}>{BADGE[box.kind] ?? KIND_LABEL[box.kind]}</span>;
   }
   return (
     <div className={`box-header${centered ? ' centered' : ''}`}>
@@ -227,19 +231,73 @@ function TextContent({ box, editing }: { box: Box; editing: boolean }) {
         value={box.text}
         onChange={(e) => useStore.getState().updateBox(box.id, { text: e.target.value }, `${box.id}:text`)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+          if (e.key === 'Escape') {
             e.preventDefault();
             stopEditing();
+          } else if (e.key === 'Tab' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+            // Tab: 오른쪽에 이어지는 새 박스, Ctrl+Enter: 아래에 새 박스
+            e.preventDefault();
+            const id = box.id;
+            const dir = e.key === 'Tab' ? 'right' : 'below';
+            stopEditing();
+            useStore.getState().addNext(id, dir);
           }
         }}
-        onBlur={stopEditing}
+        onBlur={(e) => {
+          // Tab 으로 새 박스를 만들면서 생긴 blur 는 무시한다
+          if (useStore.getState().editingId === box.id) stopEditing();
+          else e.preventDefault();
+        }}
       />
     );
   }
   return (
     <div className="box-text" style={style}>
-      {box.text}
+      {box.titleLine && box.text.includes('\n') ? (
+        <>
+          <span className="box-title-line">
+            <Linkified text={box.text.slice(0, box.text.indexOf('\n'))} />
+          </span>
+          <Linkified text={box.text.slice(box.text.indexOf('\n') + 1)} />
+        </>
+      ) : box.titleLine ? (
+        <span className="box-title-line">
+          <Linkified text={box.text} />
+        </span>
+      ) : (
+        <Linkified text={box.text} />
+      )}
     </div>
+  );
+}
+
+const URL_RE = /(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]])/g;
+
+/** 글 속의 인터넷 주소를 링크로 보여 준다. Ctrl+클릭하면 브라우저로 연다 */
+function Linkified({ text }: { text: string }) {
+  if (!text.includes('http')) return <>{text}</>;
+  const parts = text.split(URL_RE);
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 === 1 ? (
+          <a
+            key={i}
+            data-link
+            href={p}
+            title="Ctrl+클릭으로 열기"
+            onClick={(e) => {
+              e.preventDefault();
+              if (e.ctrlKey || e.metaKey) window.open(p, '_blank', 'noopener');
+            }}
+          >
+            {p}
+          </a>
+        ) : (
+          p
+        ),
+      )}
+    </>
   );
 }
 

@@ -95,3 +95,35 @@ export function dotBackground(view: View) {
     backgroundPosition: `${view.x - step / 2}px ${view.y - step / 2}px`,
   };
 }
+
+let anim = 0;
+
+/** 화면을 target 으로 부드럽게 옮긴다 */
+export function animateView(target: View, ms = 240) {
+  cancelAnimationFrame(anim);
+  const from = { ...useStore.getState().doc.view };
+  const start = performance.now();
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / ms);
+    const e = 1 - Math.pow(1 - t, 3);
+    // 배율은 곱셈으로 섞어야 자연스럽다
+    const zoom = from.zoom * Math.pow(target.zoom / from.zoom, e);
+    useStore.getState().setView({ zoom, x: from.x + (target.x - from.x) * e, y: from.y + (target.y - from.y) * e });
+    if (t < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+
+/** 박스가 화면 가운데에 오도록 옮긴다. 화면에 들어오지 않으면 배율도 맞춘다 */
+export function focusBox(id: string) {
+  const { doc } = useStore.getState();
+  const b = doc.boxes.find((x) => x.id === id);
+  if (!b) return;
+  const { w, h } = viewportSize();
+  const pad = 140;
+  const fit = Math.min((w - pad * 2) / Math.max(b.w, 1), (h - pad * 2) / Math.max(b.h, 1));
+  const cur = doc.view.zoom;
+  const zoom = clampZoom(cur <= fit && cur >= 0.5 ? cur : Math.min(fit, 1.2));
+  animateView({ zoom, x: w / 2 - (b.x + b.w / 2) * zoom, y: h / 2 - (b.y + b.h / 2) * zoom });
+  useStore.getState().flash(id);
+}

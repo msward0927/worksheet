@@ -19,4 +19,13 @@ contextBridge.exposeInMainWorld('api', {
   },
   initialFile: () => ipcRenderer.invoke('app:initialFile'),
   dataDir: () => ipcRenderer.invoke('app:dataDir'),
+  libList: () => ipcRenderer.invoke('lib:list'),
+  libCreate: (title, content) => ipcRenderer.invoke('lib:create', title, content),
+  libRename: (p, title) => ipcRenderer.invoke('lib:rename', p, title),
+  libDuplicate: (p) => ipcRenderer.invoke('lib:duplicate', p),
+  libTrash: (p) => ipcRenderer.invoke('lib:trash', p),
+  libReveal: (p) => ipcRenderer.invoke('lib:reveal', p),
+  exportPng: (name, bytes) => ipcRenderer.invoke('export:png', name, bytes),
+  exportPdf: (name, size) => ipcRenderer.invoke('export:pdf', name, size),
+  showExported: (p) => ipcRenderer.invoke('export:show', p),
 });

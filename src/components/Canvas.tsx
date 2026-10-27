@@ -5,7 +5,7 @@ import { boxForTool, cloneBoxes, makeBox } from '../boxes';
 import { openContent } from '../fileOps';
 import { intersects, type Pt, type Rect } from '../geometry';
 import { edgeLayer, findContainer, reparent, topLevel, withDescendants } from '../tree';
-import { platform, readImageFile } from '../platform';
+import { platform, readImageFile, shrinkImage } from '../platform';
 import { useStore } from '../store';
 import type { Box, Edge, Tool } from '../types';
 import { useResults } from '../useResults';
@@ -54,7 +54,9 @@ function isTyping(el: EventTarget | null) {
 }
 
 /** 이미지 data URL 로 크기가 맞춰진 이미지 박스를 만든다 */
-export function imageBox(data: string, x: number, y: number): Promise<Box> {
+export async function imageBox(raw: string, x: number, y: number): Promise<Box> {
+  // 큰 이미지는 넣을 때 알맞게 줄여서 파일이 커지지 않게 한다
+  const data = await shrinkImage(raw);
   return new Promise((resolve) => {
     const img = new Image();
     const done = (w: number, h: number) => {
@@ -73,6 +75,7 @@ export function Canvas() {
   const selectedEdge = useStore((s) => s.selectedEdge);
   const editingId = useStore((s) => s.editingId);
   const tool = useStore((s) => s.tool);
+  const flashId = useStore((s) => s.flashId);
   const results = useResults();
 
   const vpRef = useRef<HTMLDivElement>(null);
@@ -91,7 +94,7 @@ export function Canvas() {
     return { x: (clientX - r.left - v.x) / v.zoom, y: (clientY - r.top - v.y) / v.zoom };
   }, []);
 
-  // 휠: 확대/축소
+  // 휠: 확대/축소. 트랙패드 모드에서는 휠(두 손가락)로 화면을 옮기고, 오므리기(Ctrl+휠)로 확대/축소
   useEffect(() => {
     const el = vpRef.current!;
     registerViewport(el);
@@ -102,6 +105,18 @@ export function Canvas() {
       }
       e.preventDefault();
       const r = el.getBoundingClientRect();
+      const s = useStore.getState();
+      if (s.wheelMode === 'pan' && !(e.ctrlKey || e.metaKey)) {
+        const v = s.doc.view;
+        s.setView({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY });
+        return;
+      }
+      if (e.shiftKey && !(e.ctrlKey || e.metaKey)) {
+        // Shift+휠: 가로로 이동
+        const v = s.doc.view;
+        s.setView({ ...v, x: v.x - (e.deltaX || e.deltaY) });
+        return;
+      }
       const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
       zoomAt(e.clientX - r.left, e.clientY - r.top, factor);
     };
@@ -215,7 +230,9 @@ export function Canvas() {
     }
     s.addBox(box);
     s.setTool('select');
-    if (box.kind !== 'image' && box.kind !== 'shape') s.setEditing(box.id);
+    // 다른 박스를 감싸며 만든 워크박스는 묶음 용도이니 바로 글쓰기로 들어가지 않는다
+    const wraps = box.kind === 'shape' && useStore.getState().doc.boxes.some((b) => b.parentId === box.id);
+    if (box.kind !== 'image' && !wraps) s.setEditing(box.id);
   };
 
   /** Alt 를 누르고 끌기 시작하면 선택한 박스를 복제하고, 복제본을 끌고 간다 */
@@ -244,6 +261,7 @@ export function Canvas() {
     }
     if (e.button !== 0) return;
     if (target.closest('input, textarea, select, button, [data-no-drag]')) return;
+    if ((e.ctrlKey || e.metaKey) && target.closest('a[data-link]')) return;
 
     const handleEl = target.closest<HTMLElement>('[data-handle]');
     const connectEl = target.closest<HTMLElement>('[data-connect-handle]');
@@ -296,6 +314,8 @@ export function Canvas() {
     const d = drag.current;
     if (!d) return;
     const s = useStore.getState();
+    // 끄는 동안에는 빠른 편집 막대를 숨긴다
+    if (d.kind !== 'pan' && !s.interacting) s.setInteracting(true);
     const p = toWorld(e.clientX, e.clientY);
     // Shift 를 누르고 있거나 '항상 점에 맞추기'가 켜져 있으면 점에 맞춘다
     const useSnap = s.snap || e.shiftKey;
@@ -396,6 +416,7 @@ export function Canvas() {
     setOverlay(null);
     setPanning(false);
     setDropTarget(null);
+    useStore.getState().setInteracting(false);
     setDotsTarget(null);
     if (!d) return;
     const s = useStore.getState();
@@ -447,7 +468,7 @@ export function Canvas() {
       const box = s.doc.boxes.find((b) => b.id === boxId)!;
       if (box.kind === 'image') {
         const data = await platform.openImage();
-        if (data) s.updateBox(box.id, { image: data });
+        if (data) s.updateBox(box.id, { image: await shrinkImage(data) });
       } else {
         s.select([boxId]);
         s.setEditing(boxId);
@@ -522,6 +543,7 @@ export function Canvas() {
               selected={selectedSet.has(b.id)}
               single={single}
               editing={editingId === b.id}
+              flash={flashId === b.id}
               result={results.get(b.id)}
               zoom={view.zoom}
               showDots={dotsTarget === b.id}

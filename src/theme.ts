@@ -12,8 +12,11 @@ const DARK: Record<string, string> = {
   '#ece4fa': '#3d3550',
   '#f3f1ec': '#353a41',
   '#fbfaf7': '#2a2e33',
+  '#fde2e7': '#4a3038',
   // 테두리
   '#d6d1c6': '#4a5059',
+  '#e3dfd6': '#41464e',
+  '#9c978c': '#7d8590',
   '#e2b48c': '#8a6a4e',
   '#c9daf8': '#3f5d7a',
   '#e8d88a': '#7a6e3e',
@@ -62,3 +65,11 @@ export const loadTheme = (): Theme => loadPref('worksheet-theme', ['light', 'dar
 export const saveTheme = (theme: Theme) => savePref('worksheet-theme', theme);
 export const loadSnap = () => loadPref('worksheet-snap', ['on', 'off'] as const, 'off') === 'on';
 export const saveSnap = (on: boolean) => savePref('worksheet-snap', on ? 'on' : 'off');
+
+export type WheelMode = 'zoom' | 'pan';
+export const loadWheel = (): WheelMode => loadPref('worksheet-wheel', ['zoom', 'pan'] as const, 'zoom');
+export const saveWheel = (m: WheelMode) => savePref('worksheet-wheel', m);
+export const loadPanel = () => loadPref('worksheet-panel', ['open', 'closed'] as const, 'closed') === 'open';
+export const savePanel = (open: boolean) => savePref('worksheet-panel', open ? 'open' : 'closed');
+export const loadAutosave = () => loadPref('worksheet-autosave', ['on', 'off'] as const, 'on') === 'on';
+export const saveAutosave = (on: boolean) => savePref('worksheet-autosave', on ? 'on' : 'off');

@@ -93,6 +93,75 @@ export const Icon = {
       <path d="M4 11l8-7 8 7v9H4z" />
     </Svg>
   ),
+  menu: () => (
+    <Svg size={18}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Svg>
+  ),
+  search: () => (
+    <Svg size={18}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
+    </Svg>
+  ),
+  panel: () => (
+    <Svg size={18}>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M15 4v16" />
+    </Svg>
+  ),
+  download: () => (
+    <Svg size={18}>
+      <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+    </Svg>
+  ),
+  more: () => (
+    <Svg size={18}>
+      <circle cx="5.5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="18.5" cy="12" r="1" />
+    </Svg>
+  ),
+  copy: () => (
+    <Svg size={17}>
+      <rect x="8" y="8" width="12" height="12" rx="2.5" />
+      <path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" />
+    </Svg>
+  ),
+  group: () => (
+    <Svg size={17}>
+      <rect x="3" y="3" width="18" height="18" rx="3" strokeDasharray="3 3" />
+      <rect x="7" y="7" width="5" height="5" rx="1" />
+      <rect x="12" y="12" width="5" height="5" rx="1" />
+    </Svg>
+  ),
+  alignLeft: () => (
+    <Svg size={17}>
+      <path d="M4 6h16M4 10h10M4 14h16M4 18h10" />
+    </Svg>
+  ),
+  alignCenter: () => (
+    <Svg size={17}>
+      <path d="M4 6h16M7 10h10M4 14h16M7 18h10" />
+    </Svg>
+  ),
+  alignRight: () => (
+    <Svg size={17}>
+      <path d="M4 6h16M10 10h10M4 14h16M10 18h10" />
+    </Svg>
+  ),
+  layout: () => (
+    <Svg size={17}>
+      <path d="M4 4v16M20 4v16" />
+      <rect x="8" y="6" width="8" height="4" rx="1" />
+      <rect x="8" y="14" width="8" height="4" rx="1" />
+    </Svg>
+  ),
+  link: () => (
+    <Svg size={16}>
+      <path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" />
+    </Svg>
+  ),
   gear: () => (
     <Svg size={18}>
       <circle cx="12" cy="12" r="3" />

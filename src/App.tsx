@@ -2,11 +2,13 @@ import { useEffect } from 'react';
 import { Canvas, pasteFallback } from './components/Canvas';
 import { Home } from './components/Home';
 import { PropertiesPanel } from './components/PropertiesPanel';
+import { QuickBar } from './components/QuickBar';
+import { SearchPanel } from './components/SearchPanel';
 import { TOOLS, Toolbar } from './components/Toolbar';
 import { SettingsDialog } from './components/SettingsDialog';
-import { SettingsButton, ThemeButton, TopBar, ZoomControls } from './components/TopBar';
-import { newFromTemplate, openContent, openFromDialog, saveDoc } from './fileOps';
-import { fileNameOf, platform } from './platform';
+import { TopBar, ZoomControls } from './components/TopBar';
+import { docName, flushSave, newFromTemplate, openContent, openFromDialog, saveDoc, startAutosave } from './fileOps';
+import { platform } from './platform';
 import { useStore } from './store';
 import { TEMPLATES } from './templates';
 import { BASE_DOT, fitView, setZoom, zoomBy } from './viewport';
@@ -60,15 +62,29 @@ function useKeyboard() {
       }
       if (mod && key === 'n') {
         e.preventDefault();
-        newFromTemplate(TEMPLATES[0]);
+        void newFromTemplate(TEMPLATES[0]);
         return;
       }
-      if (s.screen !== 'editor' || isTyping(e.target)) return;
+      if (s.screen !== 'editor') return;
+      if (mod && key === 'f') {
+        e.preventDefault();
+        s.setSearchOpen(true);
+        return;
+      }
+      if (mod && key === '.') {
+        e.preventDefault();
+        s.setPanelOpen(!s.panelOpen);
+        return;
+      }
+      if (isTyping(e.target)) return;
 
       if (mod) {
         if (key === 'z' && !e.shiftKey) s.undo();
         else if ((key === 'z' && e.shiftKey) || key === 'y') s.redo();
         else if (key === 'd') s.duplicate();
+        else if (key === 'g' && e.shiftKey) s.ungroupSelected();
+        else if (key === 'g') s.groupSelected();
+        else if (e.key === 'Enter' && s.selected.length === 1) s.addNext(s.selected[0], 'below');
         else if (key === 'a') s.select(s.doc.boxes.map((b) => b.id));
         else if (key === 'c') s.copy();
         else if (key === 'v') {
@@ -98,6 +114,12 @@ function useKeyboard() {
         s.setEditing(s.selected[0]);
         return;
       }
+      // Tab: 오른쪽에 이어지는 새 박스
+      if (e.key === 'Tab' && s.selected.length === 1) {
+        e.preventDefault();
+        s.addNext(s.selected[0], 'right');
+        return;
+      }
       if (e.key.startsWith('Arrow') && s.selected.length > 0) {
         e.preventDefault();
         // 방향키는 1px, Shift+방향키는 점 한 칸씩 옮긴다
@@ -116,25 +138,30 @@ function useKeyboard() {
   }, []);
 }
 
-/** 창 제목, 저장 안 됨 표시, 닫기 전 저장을 메인 프로세스와 맞춘다 */
+/** 창 제목, 저장 상태, 닫기 전 저장을 메인 프로세스와 맞춘다 */
 function useDesktopSync() {
   const dirty = useStore((s) => s.dirty);
-  const title = useStore((s) => (s.filePath ? fileNameOf(s.filePath) : s.doc.title));
+  const willAutosave = useStore((s) => s.autosave && s.filePath !== null);
+  const title = useStore((s) => docName(s.filePath, s.doc.title));
   const screen = useStore((s) => s.screen);
   const theme = useStore((s) => s.theme);
+
+  useEffect(() => startAutosave(), []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     platform.setTheme(theme);
   }, [theme]);
-  useEffect(() => platform.setDirty(dirty), [dirty]);
+  useEffect(() => platform.setDirty(!dirty ? 'clean' : willAutosave ? 'autosave' : 'unsaved'), [dirty, willAutosave]);
   useEffect(() => {
-    platform.setTitle(screen === 'editor' ? `${dirty ? '● ' : ''}${title || '제목 없음'} — Worksheet` : 'Worksheet');
-  }, [title, dirty, screen]);
+    platform.setTitle(screen === 'editor' ? `${dirty && !willAutosave ? '● ' : ''}${title} — Worksheet` : 'Worksheet');
+  }, [title, dirty, willAutosave, screen]);
 
   useEffect(() => {
+    // 창을 닫을 때: 기다리던 저장을 마치고 닫는다
     platform.onSaveAndClose(async () => {
-      if (await saveDoc()) platform.forceClose();
+      const ok = useStore.getState().filePath ? await flushSave() : await saveDoc();
+      if (ok || window.confirm('저장하지 못했어요. 그래도 닫을까요?')) platform.forceClose();
     });
     // 실행할 때 .wsht 파일을 넘겨받았다면 바로 연다
     platform.initialFile().then((f) => f && openContent(f.content, f.path));
@@ -145,38 +172,27 @@ export function App() {
   const screen = useStore((s) => s.screen);
   const toast = useStore((s) => s.toast);
   const settingsOpen = useStore((s) => s.settingsOpen);
+  const searchOpen = useStore((s) => s.searchOpen);
+  const panelOpen = useStore((s) => s.panelOpen);
   useKeyboard();
   useDesktopSync();
 
   return (
     <div className="app">
       {screen === 'home' ? (
-        <>
-          <header className="topbar">
-            <div className="brand static">
-              <span className="logo" aria-hidden="true">
-                {Array.from({ length: 9 }, (_, i) => (
-                  <span key={i} className={i === 4 ? 'accent' : ''} />
-                ))}
-              </span>
-              <span className="brand-name">Worksheet</span>
-            </div>
-            <div className="spacer" />
-            <ThemeButton />
-            <SettingsButton />
-          </header>
-          <Home />
-        </>
+        <Home />
       ) : (
         <>
           <TopBar />
           <div className="workspace">
-            <Toolbar />
             <div className="canvas-wrap">
               <Canvas />
               <ZoomControls />
+              <Toolbar />
+              <QuickBar />
+              {searchOpen && <SearchPanel />}
+              {panelOpen && <PropertiesPanel />}
             </div>
-            <PropertiesPanel />
           </div>
         </>
       )}
